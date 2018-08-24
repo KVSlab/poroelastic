@@ -1,8 +1,9 @@
 __author__ = "Alexandra Diem <alexandra@simula.no>"
 
-from dolfin import *
+import sys
+sys.path.append("../poroelastic")
 
-from poroelastic import *
+import poroelastic
 
 
 print("first test")
