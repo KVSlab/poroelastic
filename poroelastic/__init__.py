@@ -8,6 +8,9 @@ __email__ = 'alexandra@simula.no'
 from dolfin import *
 import numpy as np
 
+from poroelastic import *
+from material_models import *
+
 # Use compiler optimizations
 parameters["form_compiler"]["cpp_optimize"] = True
 flags = ["-O3", "-ffast-math", "-march=native"]
