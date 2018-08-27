@@ -1,24 +1,32 @@
 from dolfin import *
 
+from material_models import *
+import utils
+
+# Use compiler optimizations
+parameters["form_compiler"]["cpp_optimize"] = True
+flags = ["-O3", "-ffast-math", "-march=native"]
+parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
+
 set_log_level(30)
 
 
-def PoroelasticProblem(object):
+class PoroelasticProblem(object):
 
     def __init__(self, mesh, params):
-        self.params = ParamParser(params)
+        self.params = params
 
         # Create function spaces
-        self.SFS = self.create_function_spaces(mesh)
+        self.FS = self.create_function_spaces(mesh)
 
         # Create solution functions
-        self.U = Function(SFS)
-        self.U_n = Function(SFS)
+        self.U = Function(self.FS)
+        self.U_n = Function(self.FS)
 
 
     def create_function_spaces(self, mesh):
         El_Y = VectorElement('P', mesh.ufl_cell(), 2)
-        El_L = FiniteElement('R', mesh.ufl_cell(), 1)
+        El_L = FiniteElement('R', mesh.ufl_cell(), 0)
         El = MixedElement([El_Y, El_L])
         SFS = FunctionSpace(mesh, El)
         return SFS
@@ -35,7 +43,7 @@ def PoroelasticProblem(object):
     def set_variational_form(self):
 
         # Test functions
-        vy, vl = TestFunctions(self.YFS)
+        vy, vl = TestFunctions(self.FS)
 
         # Trial functions
         dU, L = split(self.U)
@@ -48,14 +56,18 @@ def PoroelasticProblem(object):
         C = F.T*F
         E = 0.5 * (C - I)
 
+        # modified Cauchy-Green invariants
+        I1 = J**(-2/3) * tr(C)
+        I2 = J**(-4/3) * 0.5 * (tr(C)**2 - tr(dot(C, C)))
+
         # Material definition
         material = IsotropicExponentialFormMaterial()
         rho = self.params.params['rho']
-        Psi = material.constitutive_law(1.0, rho)
+        Psi = material.constitutive_law(I1, I2, J, 1.0, rho)
         Psic = Psi + L*(J - 1 - self.sum_fluid_mass()/rho)
-        S = diff(Psi, E) + L*J*inv(C)
+        S = diff(Psic, variable(E)) + L*J*inv(C)
 
-        Form = inner(F*S, grad(vy))*dx + (dU*vl + L*vy)*dx
+        Form = inner(F*S, grad(vy))*dx + L*vl*dx
         return Form
 
 
@@ -86,7 +98,7 @@ def PoroelasticProblem(object):
 
             if mpiRank == 0: utils.print_time(t)
 
-            prob = NonlinearVariationalProblem(F, self.u, J=J, form_compiler_parameters={"optimize": True})
+            prob = NonlinearVariationalProblem(F, self.U, J=J, form_compiler_parameters={"optimize": True})
             sol = NonlinearVariationalSolver(prob)
             sol.parameters['newton_solver']['linear_solver'] = 'minres'
             sol.parameters['newton_solver']['preconditioner'] = 'jacobi'
@@ -96,7 +108,7 @@ def PoroelasticProblem(object):
             sol.solve()
 
             # Store current solution as previous
-            self.un.assign(self.U)
+            self.U_n.assign(self.U)
 
             t += dt
 

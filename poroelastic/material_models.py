@@ -3,7 +3,7 @@ from dolfin import *
 set_log_level(30)
 
 
-def IsotropicExponentialFormMaterial(MaterialModel):
+class IsotropicExponentialFormMaterial(object):
 
     # Parameters
     a = 1.0
@@ -16,10 +16,10 @@ def IsotropicExponentialFormMaterial(MaterialModel):
 
     def __init__(self):
         pass
-        
 
-    def constitutive_law(self, M, rho):
-        Psi = a * (exp(D1 * (I1 * (1 + Qi1*M/rho) - 3)\
-            + D2 * (I2 *(1 + Qi2*M/rho) - 3)\
-            + D3 * ((J-1)^2 + Qi3*(M/rho)^2)) - 1)
+
+    def constitutive_law(self, I1, I2, J, M, rho):
+        Psi = self.a * (exp(self.D1 * (I1 * (1 + self.Qi1*M/rho) - 3)\
+            + self.D2 * (I2 *(1 + self.Qi2*M/rho) - 3)\
+            + self.D3 * ((J-1)**2 + self.Qi3*(M/rho)**2)) - 1)
         return Psi

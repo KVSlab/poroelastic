@@ -3,6 +3,8 @@ __author__ = "Alexandra Diem <alexandra@simula.no>"
 from scipy.interpolate import interp1d
 from itertools import chain
 
+from dolfin import set_log_level
+
 
 def read_time_data(fname, unit):
     """

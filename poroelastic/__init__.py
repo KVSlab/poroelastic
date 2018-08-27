@@ -5,13 +5,6 @@ __license__ = 'BSD-3'
 __maintainer__ = 'Alexandra Diem'
 __email__ = 'alexandra@simula.no'
 
-from dolfin import *
-import numpy as np
-
-from poroelastic import *
-from material_models import *
-
-# Use compiler optimizations
-parameters["form_compiler"]["cpp_optimize"] = True
-flags = ["-O3", "-ffast-math", "-march=native"]
-parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
+import problem
+import material_models
+import param_parser
