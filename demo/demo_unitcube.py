@@ -19,8 +19,8 @@ params = ParamParser("../data/demo_unitcube.cfg")
 poro = PoroelasticProblem(mesh, params)
 
 # Mark boundary subdomians
-left =  CompiledSubDomain("near(x[0], side) && on_boundary", side = 0.0)
-right = CompiledSubDomain("near(x[0], side) && on_boundary", side = 1.0)
+left =  "near(x[0], 0.0) && on_boundary"
+right = "near(x[0], 1.0) && on_boundary"
 
 # Define Dirichlet boundary (x = 0 or x = 1)
 c = Expression(("0.0", "0.0", "0.0"), degree=2)
