@@ -18,8 +18,18 @@ params = ParamParser("../data/demo_unitcube.cfg")
 
 poro = PoroelasticProblem(mesh, params)
 
-bcs = []
-poro.set_boundary_conditions(bcs)
+# Mark boundary subdomians
+left =  CompiledSubDomain("near(x[0], side) && on_boundary", side = 0.0)
+right = CompiledSubDomain("near(x[0], side) && on_boundary", side = 1.0)
+
+# Define Dirichlet boundary (x = 0 or x = 1)
+c = Expression(("0.0", "0.0", "0.0"), degree=2)
+r = Expression(("scale*0.0",
+                "scale*(y0 + (x[1] - y0)*cos(theta) - (x[2] - z0)*sin(theta) - x[1])",
+                "scale*(z0 + (x[1] - y0)*sin(theta) + (x[2] - z0)*cos(theta) - x[2])"),
+                scale = 0.5, y0 = 0.5, z0 = 0.5, theta = pi/3, degree=2)
+
+poro.set_boundary_conditions([c, r], [left, right])
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True

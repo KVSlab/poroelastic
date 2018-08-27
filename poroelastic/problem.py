@@ -32,10 +32,12 @@ class PoroelasticProblem(object):
         return SFS
 
 
-    def set_boundary_conditions(self, bcs):
-        self.bcs = bcs
+    def set_boundary_conditions(self, bcs, domains):
+        self.bcs = []
+        for bc, domain in zip(bcs, domains):
+            self.bcs.append(DirichletBC(self.FS.sub(0), bc, domain))
 
-
+            
     def sum_fluid_mass(self):
         return 1
 
@@ -98,7 +100,8 @@ class PoroelasticProblem(object):
 
             if mpiRank == 0: utils.print_time(t)
 
-            prob = NonlinearVariationalProblem(F, self.U, J=J, form_compiler_parameters={"optimize": True})
+            prob = NonlinearVariationalProblem(F, self.U, bcs=self.bcs, J=J,
+                    form_compiler_parameters={"optimize": True})
             sol = NonlinearVariationalSolver(prob)
             sol.parameters['newton_solver']['linear_solver'] = 'minres'
             sol.parameters['newton_solver']['preconditioner'] = 'jacobi'
