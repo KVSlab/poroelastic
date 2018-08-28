@@ -37,13 +37,13 @@ def set_xdmf_parameters(f):
     f.parameters['rewrite_function_mesh'] = False
 
 # Files for output
-f1 = XDMFFile(mpi_comm_world(), '../data/demo_unitcube/u1.xdmf')
+f1 = XDMFFile(mpi_comm_world(), '../data/demo_unitcube/uf.xdmf')
 
 set_xdmf_parameters(f1)
 
 for U, t in poro.solve():
-    dU, L = U.split()
+    #dU, L = U.split()
 
-    utils.write_file(f1, dU, 'du', t)
+    utils.write_file(f1, U, 'du', t)
 
 f1.close()
