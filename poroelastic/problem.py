@@ -60,6 +60,12 @@ class PoroelasticProblem(object):
         # Trial functions
         dU, L = split(self.Us)
 
+        # parameters
+        rho = self.params.params['rho']
+
+        # fluid Solution
+        m = self.Uf
+
         # Kinematics
         d = dU.geometric_dimension()
         I = Identity(d)
@@ -73,9 +79,8 @@ class PoroelasticProblem(object):
         I2 = J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C))
 
         # Material definition
-        rho = self.params.params['rho']
-        Psi = self.material.constitutive_law(I1, I2, J, 1.0, rho)
-        Psic = Psi + L*(J - 1 - self.sum_fluid_mass()/rho)
+        Psi = self.material.constitutive_law(I1, I2, J, m, rho)
+        Psic = Psi + L*(J - 1 - m/rho)
         Pi = diff(Psi, variable(E)) + L*J*inv(C)
 
         Form = inner(F*Pi, grad(vy))*dx + L*vl*dx
@@ -106,7 +111,7 @@ class PoroelasticProblem(object):
         C = F.T*F
         I1 = J**(-2/3) * tr(C)
         I2 = J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C))
-        Psi = self.material.constitutive_law(I1, I2, J, 1.0, rho)
+        Psi = self.material.constitutive_law(I1, I2, J, m, rho)
         p = diff(Psi, variable(J*rho)) - L
 
         # theta-rule / Crank-Nicolson
@@ -140,28 +145,41 @@ class PoroelasticProblem(object):
         Ff = self.set_fluid_variational_form()
         Jf = derivative(Ff, self.Uf)
 
+        fprob = NonlinearVariationalProblem(Ff, self.Uf, bcs=[], J=Jf,
+                form_compiler_parameters={"optimize": True})
+        fsol = NonlinearVariationalSolver(fprob)
+        fsol.parameters['newton_solver']['linear_solver'] = 'mumps'
+        fsol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
+        fsol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
+
+        Fs = self.set_solid_variational_form()
+        Js = derivative(Fs, self.Us)
+
+        sprob = NonlinearVariationalProblem(Fs, self.Us, bcs=[], J=Js,
+                form_compiler_parameters={"optimize": True})
+        ssol = NonlinearVariationalSolver(sprob)
+        ssol.parameters['newton_solver']['linear_solver'] = 'mumps'
+        ssol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
+        ssol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
+
         while t < self.params.params['tf']:
 
             if mpiRank == 0: utils.print_time(t)
 
-            for x in range(100):
+            for x in range(10):
 
-                prob = NonlinearVariationalProblem(Ff, self.Uf, bcs=[], J=Jf,
-                        form_compiler_parameters={"optimize": True})
-                sol = NonlinearVariationalSolver(prob)
-                sol.parameters['newton_solver']['linear_solver'] = 'mumps'
-                sol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
-                sol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
-                sol.solve()
+                fsol.solve()
+                ssol.solve()
 
                 break
 
             # Store current solution as previous
             self.Uf_n.assign(self.Uf)
+            self.Us_n.assign(self.Us)
 
             t += dt
 
-            yield self.Uf, t
+            yield self.Uf, self.Us, t
 
 
     def iterative_solver(self):

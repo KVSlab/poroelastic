@@ -41,9 +41,9 @@ f1 = XDMFFile(mpi_comm_world(), '../data/demo_unitcube/uf.xdmf')
 
 set_xdmf_parameters(f1)
 
-for U, t in poro.solve():
+for Uf, Us, t in poro.solve():
     #dU, L = U.split()
 
-    utils.write_file(f1, U, 'du', t)
+    utils.write_file(f1, Uf, 'du', t)
 
 f1.close()
