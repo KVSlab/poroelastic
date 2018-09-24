@@ -29,7 +29,7 @@ r = Expression(("scale*0.0",
                 "scale*(z0 + (x[1] - y0)*sin(theta) + (x[2] - z0)*cos(theta) - x[2])"),
                 scale = 0.5, y0 = 0.5, z0 = 0.5, theta = pi/3, degree=2)
 
-poro.set_boundary_conditions([c, r], [left, right])
+poro.set_solid_boundary_conditions([c, r], [left, right])
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
@@ -38,12 +38,16 @@ def set_xdmf_parameters(f):
 
 # Files for output
 f1 = XDMFFile(mpi_comm_world(), '../data/demo_unitcube/uf.xdmf')
+f2 = XDMFFile(mpi_comm_world(), '../data/demo_unitcube/du.xdmf')
 
 set_xdmf_parameters(f1)
+set_xdmf_parameters(f2)
 
 for Uf, Us, t in poro.solve():
-    #dU, L = U.split()
+    dU, L = Us.split()
 
-    utils.write_file(f1, Uf, 'du', t)
+    utils.write_file(f1, Uf, 'uf', t)
+    utils.write_file(f2, dU, 'du', t)
 
 f1.close()
+f2.close()

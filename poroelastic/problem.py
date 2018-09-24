@@ -4,9 +4,7 @@ from material_models import *
 import utils
 
 # Use compiler optimizations
-parameters["form_compiler"]["cpp_optimize"] = True
-flags = ["-O3", "-ffast-math", "-march=native"]
-parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
+parameters["form_compiler"]["representation"] = "uflacs"
 
 set_log_level(30)
 
@@ -25,43 +23,43 @@ class PoroelasticProblem(object):
         self.Uf = Function(self.FS_F)
         self.Uf_n = Function(self.FS_F)
 
-        # Material
-        self.material = IsotropicExponentialFormMaterial()
-
         self.theta = 0.5
+
+        # Material
+        material = IsotropicExponentialFormMaterial()
+
+        # Set variational forms
+        self.SForm, self.dSForm, Psi = self.set_solid_variational_form(material)
+        self.FForm, self.dFForm = self.set_fluid_variational_form(Psi)
 
 
     def create_function_spaces(self, mesh):
-        El_Y = VectorElement('P', mesh.ufl_cell(), 2)
-        El_L = FiniteElement('R', mesh.ufl_cell(), 0)
-        El_P = FiniteElement('P', mesh.ufl_cell(), 1)
-        El_M = FiniteElement('P', mesh.ufl_cell(), 1)
-        El_S = MixedElement([El_Y, El_L])
-        FS_S = FunctionSpace(mesh, El_S)
-        FS_F = FunctionSpace(mesh, El_M)
+        V2 = VectorElement('P', mesh.ufl_cell(), 2)
+        R0 = FiniteElement('R', mesh.ufl_cell(), 0)
+        P1 = FiniteElement('P', mesh.ufl_cell(), 1)
+        TH = MixedElement([V2, P1]) # Taylor-Hood element
+        FS_S = FunctionSpace(mesh, TH)
+        FS_F = FunctionSpace(mesh, P1)
         return FS_S, FS_F
 
 
-    def set_boundary_conditions(self, bcs, domains):
+    def set_solid_boundary_conditions(self, bcs, domains):
         self.bcs = []
         for bc, domain in zip(bcs, domains):
             self.bcs.append(DirichletBC(self.FS_S.sub(0), bc, domain))
 
 
     def sum_fluid_mass(self):
-        return 0
+        return self.Uf/self.params.params['rho']
 
 
-    def set_solid_variational_form(self):
+    def set_solid_variational_form(self, material):
 
-        # Test functions
-        vy, vl = TestFunctions(self.FS_S)
-
-        # Trial functions
+        U = self.Us
         dU, L = split(self.Us)
 
         # parameters
-        rho = self.params.params['rho']
+        rho = Constant(self.params.params['rho'])
 
         # fluid Solution
         m = self.Uf
@@ -79,51 +77,53 @@ class PoroelasticProblem(object):
         I2 = J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C))
 
         # Material definition
-        Psi = self.material.constitutive_law(I1, I2, J, m, rho)
-        Psic = Psi + L*(J - 1 - m/rho)
-        Pi = diff(Psi, variable(E)) + L*J*inv(C)
+        Psi = material.constitutive_law(I1, I2, J, m, rho)
+        Psic = Psi*dx + L*(J - Constant(1) - m/rho)*dx
 
-        Form = inner(F*Pi, grad(vy))*dx + L*vl*dx
-        return Form
+        Form = derivative(Psic, U, TestFunction(self.FS_S))
+        dF = derivative(Form, U, TrialFunction(self.FS_S))
+
+        return Form, dF, Psi
 
 
-    def set_fluid_variational_form(self):
+    def set_fluid_variational_form(self, Psi):
 
-        # Test functions
-        vm = TestFunction(self.FS_F)
-
-        # Trial functions
         m = self.Uf
         m_n = self.Uf_n
+        vm = TestFunction(self.FS_F)
+        dU, L = split(self.Us)
 
         # Parameters
         rho = Constant(self.params.params['rho'])
+        phi = Constant(self.params.params['phi'])
         qi = Constant(0.0)
         K = Constant(self.params.params['K'])
+        k = Constant(1/self.params.params['dt'])
+        th = Constant(self.theta)
+        th_ = Constant(1-self.theta)
 
-        # Solid solution
-        dU, L = self.Us.split()
+        # Kinematics from solid
         d = dU.geometric_dimension()
         I = Identity(d)
         F = I + grad(dU)
         J = det(F)
-        A = J * inv(F) * K * inv(F.T)
-        C = F.T*F
-        I1 = J**(-2/3) * tr(C)
-        I2 = J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C))
-        Psi = self.material.constitutive_law(I1, I2, J, m, rho)
-        p = diff(Psi, variable(J*rho)) - L
+
+        # Fluid-solid coupling
+        Jphi = variable(J*phi)
+        p = diff(Psi, Jphi) - L
 
         # theta-rule / Crank-Nicolson
-        th = Constant(self.theta)
-        th_ = Constant(1-self.theta)
-        k = Constant(1/self.params.params['dt'])
         M = th*m + th_*m_n
+        Vt_s = variable(dU/k)
 
-        Form = k*(m - m_n)*vm*dx + dot(dot(grad(M), dU/k), vm)*dx -\
+        # Fluid variational form
+        A = rho * J * inv(F) * K * inv(F.T)
+        Form = k*(m - m_n)*vm*dx + dot(grad(M), Vt_s)*vm*dx -\
                 rho*qi*vm*dx - inner(dot(-A, grad(p)), grad(vm))*dx
 
-        return Form
+        dF = derivative(Form, m, TrialFunction(self.FS_F))
+
+        return Form, dF
 
 
     def solve(self):
@@ -142,21 +142,16 @@ class PoroelasticProblem(object):
         t = 0.0
         dt = self.params.params['dt']
 
-        Ff = self.set_fluid_variational_form()
-        Jf = derivative(Ff, self.Uf)
-
-        fprob = NonlinearVariationalProblem(Ff, self.Uf, bcs=[], J=Jf,
-                form_compiler_parameters={"optimize": True})
+        fprob = NonlinearVariationalProblem(self.FForm, self.Uf, bcs=[],
+                                            J=self.dFForm)
         fsol = NonlinearVariationalSolver(fprob)
         fsol.parameters['newton_solver']['linear_solver'] = 'mumps'
         fsol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
         fsol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
 
-        Fs = self.set_solid_variational_form()
-        Js = derivative(Fs, self.Us)
 
-        sprob = NonlinearVariationalProblem(Fs, self.Us, bcs=[], J=Js,
-                form_compiler_parameters={"optimize": True})
+        sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.bcs,
+                                            J=self.dSForm)
         ssol = NonlinearVariationalSolver(sprob)
         ssol.parameters['newton_solver']['linear_solver'] = 'mumps'
         ssol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
@@ -192,7 +187,7 @@ class PoroelasticProblem(object):
         dt = self.params.params['dt']
 
         Ff = self.set_fluid_variational_form()
-        Jf = derivative(F, self.Uf)
+        Jf = derivative(Ff, self.Uf)
 
         while t < self.params.params['tf']:
 
