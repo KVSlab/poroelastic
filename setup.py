@@ -11,7 +11,7 @@ setup(
     description='A Python solver for poroelastic models using DOLFIN',
     long_description=open('README.md').read(),
     install_requires=[
-        "dolfin == 2017.2.0",
+        "fenics == 2017.2.0",
         "numpy",
         "h5py"
     ],
