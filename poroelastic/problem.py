@@ -3,8 +3,12 @@ from dolfin import *
 from material_models import *
 import utils
 
-# Use compiler optimizations
+# Compiler parameters
+flags = ["-O3", "-ffast-math", "-march=native"]
+parameters["form_compiler"]["quadrature_degree"] = 4
 parameters["form_compiler"]["representation"] = "uflacs"
+parameters["form_compiler"]["cpp_optimize"] = True
+parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
 set_log_level(30)
 
@@ -25,6 +29,9 @@ class PoroelasticProblem(object):
 
         self.theta = 0.5
 
+        self.sbcs = []
+        self.tconditions = []
+
         # Material
         material = IsotropicExponentialFormMaterial()
 
@@ -43,10 +50,24 @@ class PoroelasticProblem(object):
         return FS_S, FS_F
 
 
-    def set_solid_boundary_conditions(self, bcs, domains):
-        self.bcs = []
-        for bc, domain in zip(bcs, domains):
-            self.bcs.append(DirichletBC(self.FS_S.sub(0), bc, domain))
+    def add_solid_dirichlet_condition(self, condition, boundary, n=-1):
+        if n != -1:
+            self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
+                                boundary))
+        else:
+            self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
+                                boundary))
+
+
+    def add_solid_t_dirichlet_condition(self, condition, boundary, n=-1):
+        if n != -1:
+            self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
+                                boundary))
+            self.tconditions.append(condition)
+        else:
+            self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
+                                boundary))
+            self.tconditions.append(condition)
 
 
     def sum_fluid_mass(self):
@@ -95,9 +116,9 @@ class PoroelasticProblem(object):
 
         # Parameters
         rho = Constant(self.params.params['rho'])
-        phi = Constant(self.params.params['phi'])
+        phi0 = Constant(self.params.params['phi'])
         qi = Constant(0.0)
-        K = Constant(self.params.params['K'])
+        Ki = Constant(self.params.params['K'])
         k = Constant(1/self.params.params['dt'])
         th = Constant(self.theta)
         th_ = Constant(1-self.theta)
@@ -107,8 +128,10 @@ class PoroelasticProblem(object):
         I = Identity(d)
         F = I + grad(dU)
         J = det(F)
+        K = Ki*I
 
         # Fluid-solid coupling
+        phi = (m - rho*phi0)/(rho*J)
         Jphi = variable(J*phi)
         p = diff(Psi, Jphi) - L
 
@@ -147,15 +170,15 @@ class PoroelasticProblem(object):
         fsol = NonlinearVariationalSolver(fprob)
         fsol.parameters['newton_solver']['linear_solver'] = 'mumps'
         fsol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
-        fsol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
+        # fsol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
 
 
-        sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.bcs,
+        sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.sbcs,
                                             J=self.dSForm)
         ssol = NonlinearVariationalSolver(sprob)
         ssol.parameters['newton_solver']['linear_solver'] = 'mumps'
         ssol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
-        ssol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
+        # ssol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
 
         while t < self.params.params['tf']:
 
@@ -172,9 +195,12 @@ class PoroelasticProblem(object):
             self.Uf_n.assign(self.Uf)
             self.Us_n.assign(self.Us)
 
+            yield self.Uf, self.Us, t
+
             t += dt
 
-            yield self.Uf, self.Us, t
+            for con in self.tconditions:
+                con.t = t
 
 
     def iterative_solver(self):

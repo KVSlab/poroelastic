@@ -19,17 +19,20 @@ params = ParamParser("../data/demo_unitcube.cfg")
 poro = PoroelasticProblem(mesh, params)
 
 # Mark boundary subdomians
-left =  "near(x[0], 0.0) && on_boundary"
-right = "near(x[0], 1.0) && on_boundary"
+left = "near(x[0], 0.0) && on_boundary"
+front = "near(x[1], 0.0) && on_boundary"
+bottom = "near(x[2], 0.0) && on_boundary"
+top = "near(x[2], 1.0) && on_boundary"
 
-# Define Dirichlet boundary (x = 0 or x = 1)
-c = Expression(("0.0", "0.0", "0.0"), degree=2)
-r = Expression(("scale*0.0",
-                "scale*(y0 + (x[1] - y0)*cos(theta) - (x[2] - z0)*sin(theta) - x[1])",
-                "scale*(z0 + (x[1] - y0)*sin(theta) + (x[2] - z0)*cos(theta) - x[2])"),
-                scale = 0.5, y0 = 0.5, z0 = 0.5, theta = pi/3, degree=2)
+# Define Dirichlet boundary conditions
+zero = Constant(0.0)
+dt = params.params["dt"]
+squeeze = Expression("-0.01*t*x[0]", t=0.0, degree=2)
 
-poro.set_solid_boundary_conditions([c, r], [left, right])
+poro.add_solid_dirichlet_condition(zero, left, n=0)
+poro.add_solid_dirichlet_condition(zero, front, n=1)
+poro.add_solid_dirichlet_condition(zero, bottom, n=2)
+poro.add_solid_t_dirichlet_condition(squeeze, top, n=2)
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
@@ -43,7 +46,9 @@ f2 = XDMFFile(mpi_comm_world(), '../data/demo_unitcube/du.xdmf')
 set_xdmf_parameters(f1)
 set_xdmf_parameters(f2)
 
+
 for Uf, Us, t in poro.solve():
+
     dU, L = Us.split()
 
     utils.write_file(f1, Uf, 'uf', t)
