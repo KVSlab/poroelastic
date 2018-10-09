@@ -11,7 +11,7 @@ installs the package and its dependencies.
 Because poroelastic requires FEniCS we recommend setting up a Docker container
 using the Dockerfile
 ```
-docker build --no-cache -t "poroelastic:2017.2.0"
+docker build --no-cache -t poroelastic:2017.2.0
 ```
 To enter the container you can use
 ```
