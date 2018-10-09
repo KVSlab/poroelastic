@@ -11,9 +11,10 @@ installs the package and its dependencies.
 Because poroelastic requires FEniCS we recommend setting up a Docker container
 using the Dockerfile
 ```
-docker build --no-cache -t "poroelastic:tag"
+docker build --no-cache -t "poroelastic:2017.2.0"
 ```
 To enter the container you can use
 ```
-docker run -ti -p 127.0.0.1:8000:8000 -v $(pwd):/home/fenics/shared -w /home/fenics/shared poroelastic:tag
+docker run -ti -p 127.0.0.1:8000:8000 -v $(pwd):/home/fenics/shared -w /home/fenics/shared poroelastic:2017.2.0
 ```
+The tag reflects the FEniCS version used to develop the package.
