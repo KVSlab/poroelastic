@@ -7,6 +7,13 @@ class ParamParser(object):
 
     def __init__(self, fparams):
         self.fparams = fparams
+        try:
+            f = open(fparams, 'r')
+            data = f.read()
+            f.close()
+        except Exception as e:
+            print(e)
+            import sys; sys.exit(1)
         self.sim, self.units, self.params = self.get_params()
 
 
