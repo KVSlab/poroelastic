@@ -118,7 +118,7 @@ class PoroelasticProblem(object):
         rho = Constant(self.params.params['rho'])
         phi0 = Constant(self.params.params['phi'])
         qi = Constant(0.0)
-        Ki = Constant(self.params.params['K'])
+        Ki = self.K()
         k = Constant(1/self.params.params['dt'])
         th = Constant(self.theta)
         th_ = Constant(1-self.theta)
@@ -237,3 +237,13 @@ class PoroelasticProblem(object):
             t += dt
 
             yield self.U, t
+
+
+    def K(self):
+        kparam = self.params.params['K']
+        if isinstance(kparam, str):
+            K = Expression(self.params.params['K'],
+                                            element=self.FS_F.ufl_element())
+        elif isinstance(kparam, float) or isinstance(kparam, int):
+            K = Constant(kparam)
+        return K
