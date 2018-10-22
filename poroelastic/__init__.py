@@ -5,6 +5,9 @@ __license__ = 'BSD-3'
 __maintainer__ = 'Alexandra Diem'
 __email__ = 'alexandra@simula.no'
 
-import problem
-import material_models
-import param_parser
+from poroelastic.utils import *
+from poroelastic.problem import PoroelasticProblem
+from poroelastic.material_models import IsotropicExponentialFormMaterial,\
+                                        NeoHookeanMaterial
+from poroelastic.param_parser import ParamParser
+from poroelastic.lagrangian_particles import LagrangianParticles

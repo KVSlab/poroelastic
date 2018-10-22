@@ -1,7 +1,7 @@
 from dolfin import *
 
-from material_models import *
-import utils
+from poroelastic.material_models import *
+import poroelastic.utils as utils
 
 # Compiler parameters
 flags = ["-O3", "-ffast-math", "-march=native"]
