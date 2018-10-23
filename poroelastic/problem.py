@@ -27,8 +27,6 @@ class PoroelasticProblem(object):
         self.Uf = Function(self.FS_F)
         self.Uf_n = Function(self.FS_F)
 
-        self.theta = 0.5
-
         self.sbcs = []
         self.tconditions = []
 
@@ -115,13 +113,12 @@ class PoroelasticProblem(object):
         dU, L = split(self.Us)
 
         # Parameters
-        rho = Constant(self.params.params['rho'])
-        phi0 = Constant(self.params.params['phi'])
+        rho = self.rho()
+        phi0 = self.phi()
         qi = Constant(0.0)
         Ki = self.K()
-        k = Constant(1/self.params.params['dt'])
-        th = Constant(self.theta)
-        th_ = Constant(1-self.theta)
+        k = Constant(1/self.dt())
+        th, th_ = self.theta()
 
         # Kinematics from solid
         d = dU.geometric_dimension()
@@ -160,10 +157,9 @@ class PoroelasticProblem(object):
         comm = mpi_comm_world()
         mpiRank = MPI.rank(comm)
 
-        TOL = self.params.params['TOL']
-
+        TOL = self.TOL()
         t = 0.0
-        dt = self.params.params['dt']
+        dt = self.dt()
 
         fprob = NonlinearVariationalProblem(self.FForm, self.Uf, bcs=[],
                                             J=self.dFForm)
@@ -208,7 +204,6 @@ class PoroelasticProblem(object):
         mpiRank = MPI.rank(comm)
 
         TOL = self.params.params['TOL']
-
         t = 0.0
         dt = self.params.params['dt']
 
@@ -239,6 +234,12 @@ class PoroelasticProblem(object):
             yield self.U, t
 
 
+    def rho(self):
+        return Constant(self.params.params['rho'])
+
+    def phi(self):
+        return Constant(self.params.params['phi'])
+
     def K(self):
         kparam = self.params.params['K']
         if isinstance(kparam, str):
@@ -247,3 +248,13 @@ class PoroelasticProblem(object):
         elif isinstance(kparam, float) or isinstance(kparam, int):
             K = Constant(kparam)
         return K
+
+    def dt(self):
+        return Constant(self.params.params['dt'])
+
+    def theta(self):
+        theta = self.params.params['dt']
+        return Constant(theta), Constant(1-theta)
+
+    def TOL(self):
+        return self.params.params['TOL']

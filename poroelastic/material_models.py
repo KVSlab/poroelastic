@@ -3,7 +3,7 @@ from dolfin import *
 set_log_level(30)
 
 
-class IsotropicExponentialFormMaterial(object):
+class IsotropicExponentialFormMaterial(MaterialModel):
 
     def __init__(self):
         # Parameters
