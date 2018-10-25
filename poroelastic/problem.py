@@ -250,10 +250,10 @@ class PoroelasticProblem(object):
         return K
 
     def dt(self):
-        return Constant(self.params.params['dt'])
+        return self.params.params['dt']
 
     def theta(self):
-        theta = self.params.params['dt']
+        theta = self.params.params['theta']
         return Constant(theta), Constant(1-theta)
 
     def TOL(self):
