@@ -146,14 +146,14 @@ class PoroelasticProblem(object):
         return Form, dF
 
 
-    def solve(self):
+    def choose_solver(self, prob):
         if self.params.sim['solver'] == 'direct':
-            return self.direct_solver()
+            return self.direct_solver(prob)
         else:
-            return self.iterative_solver()
+            return self.iterative_solver(prob)
 
 
-    def direct_solver(self):
+    def solve(self):
         comm = mpi_comm_world()
         mpiRank = MPI.rank(comm)
 
@@ -163,18 +163,11 @@ class PoroelasticProblem(object):
 
         fprob = NonlinearVariationalProblem(self.FForm, self.Uf, bcs=[],
                                             J=self.dFForm)
-        fsol = NonlinearVariationalSolver(fprob)
-        fsol.parameters['newton_solver']['linear_solver'] = 'mumps'
-        fsol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
-        # fsol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
-
+        fsol = self.choose_solver(fprob)
 
         sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.sbcs,
                                             J=self.dSForm)
-        ssol = NonlinearVariationalSolver(sprob)
-        ssol.parameters['newton_solver']['linear_solver'] = 'mumps'
-        ssol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
-        # ssol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
+        ssol = self.choose_solver(sprob)
 
         while t < self.params.params['tf']:
 
@@ -199,39 +192,23 @@ class PoroelasticProblem(object):
                 con.t = t
 
 
-    def iterative_solver(self):
-        comm = mpi_comm_world()
-        mpiRank = MPI.rank(comm)
+    def direct_solver(self, prob):
+        sol = NonlinearVariationalSolver(prob)
+        sol.parameters['newton_solver']['linear_solver'] = 'mumps'
+        sol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
+        sol.parameters['newton_solver']['maximum_iterations'] = 1000
+        return sol
 
-        TOL = self.params.params['TOL']
-        t = 0.0
-        dt = self.params.params['dt']
 
-        Ff = self.set_fluid_variational_form()
-        Jf = derivative(Ff, self.Uf)
-
-        while t < self.params.params['tf']:
-
-            if mpiRank == 0: utils.print_time(t)
-
-            for x in range(100):
-
-                prob = NonlinearVariationalProblem(Ff, self.Uf, bcs=[], J=Jf,
-                        form_compiler_parameters={"optimize": True})
-                sol = NonlinearVariationalSolver(prob)
-                sol.parameters['newton_solver']['linear_solver'] = 'minres'
-                sol.parameters['newton_solver']['preconditioner'] = 'jacobi'
-                #sol.parameters['newton_solver']['absolute_tolerance'] = TOL
-                #sol.parameters['newton_solver']['relative_tolerance'] = TOL
-                sol.parameters['newton_solver']['krylov_solver']['monitor_convergence'] = True
-                sol.solve()
-
-                # Store current solution as previous
-                self.U_n.assign(self.U)
-
-            t += dt
-
-            yield self.U, t
+    def iterative_solver(self, prob):
+        TOL = self.TOL()
+        sol = NonlinearVariationalSolver(prob)
+        sol.parameters['newton_solver']['linear_solver'] = 'minres'
+        sol.parameters['newton_solver']['preconditioner'] = 'jacobi'
+        sol.parameters['newton_solver']['absolute_tolerance'] = TOL
+        sol.parameters['newton_solver']['relative_tolerance'] = TOL
+        sol.parameters['newton_solver']['maximum_iterations'] = 1000
+        return sol
 
 
     def rho(self):
