@@ -17,7 +17,6 @@ pprob = poro.PoroelasticProblem(mesh, params)
 
 # Mark boundary subdomians
 left = "near(x[0], 0.0) && on_boundary"
-front = "near(x[1], 0.0) && on_boundary"
 bottom = "near(x[2], 0.0) && on_boundary"
 top = "near(x[2], 1.0) && on_boundary"
 
