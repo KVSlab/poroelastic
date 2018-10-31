@@ -173,7 +173,7 @@ class PoroelasticProblem(object):
 
             if mpiRank == 0: utils.print_time(t)
 
-            for x in range(10):
+            for x in range(3):
 
                 fsol.solve()
                 ssol.solve()

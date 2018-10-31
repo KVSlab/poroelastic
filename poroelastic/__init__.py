@@ -10,4 +10,3 @@ from poroelastic.problem import PoroelasticProblem
 from poroelastic.material_models import IsotropicExponentialFormMaterial,\
                                         NeoHookeanMaterial
 from poroelastic.param_parser import ParamParser
-from poroelastic.lagrangian_particles import LagrangianParticles
