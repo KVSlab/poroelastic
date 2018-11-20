@@ -28,6 +28,7 @@ class PoroelasticProblem(object):
         self.Uf_n = Function(self.FS_F)
 
         self.sbcs = []
+        self.fbcs = []
         self.tconditions = []
 
         # Material
@@ -55,6 +56,15 @@ class PoroelasticProblem(object):
         else:
             self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
                                 boundary))
+
+
+    def add_fluid_dirichlet_condition(self, condition, boundary):
+        self.fbcs.append(DirichletBC(self.FS_F, condition, boundary))
+
+
+    def add_fluid_t_dirichlet_condition(self, condition, boundary):
+        self.fbcs.append(DirichletBC(self.FS_F, condition, boundary))
+        self.tconditions.append(condition)
 
 
     def add_solid_t_dirichlet_condition(self, condition, boundary, n=-1):
@@ -128,20 +138,32 @@ class PoroelasticProblem(object):
         K = Ki*I
 
         # Fluid-solid coupling
-        phi = (m - rho*phi0)/(rho*J)
+        phi = (m + rho*phi0)/(rho*J)
         Jphi = variable(J*phi)
         p = diff(Psi, Jphi) - L
 
         # theta-rule / Crank-Nicolson
         M = th*m + th_*m_n
-        Vt_s = variable(dU/k)
+
+        # Solid velocity
+        class Velocity(Expression):
+            def __init__(self, u, dt):
+                self.u = u
+                self.dt = dt
+            def eval_cell(self, value, x, cell):
+                self.u.eval_cell(value, x, cell)
+                value /= dt
+            def value_shape(self):
+                return (2, )
+
+        Vt_s = Velocity(u, self.dt())
 
         # Fluid variational form
         A = rho * J * inv(F) * K * inv(F.T)
         Form = k*(m - m_n)*vm*dx + dot(grad(M), Vt_s)*vm*dx -\
                 rho*qi*vm*dx - inner(dot(-A, grad(p)), grad(vm))*dx
 
-        dF = derivative(Form, m, TrialFunction(self.FS_F))
+        dF = derivative(Form, m)
 
         return Form, dF
 
@@ -161,7 +183,7 @@ class PoroelasticProblem(object):
         t = 0.0
         dt = self.dt()
 
-        fprob = NonlinearVariationalProblem(self.FForm, self.Uf, bcs=[],
+        fprob = NonlinearVariationalProblem(self.FForm, self.Uf, bcs=self.fbcs,
                                             J=self.dFForm)
         fsol = self.choose_solver(fprob)
 
@@ -190,6 +212,7 @@ class PoroelasticProblem(object):
 
             for con in self.tconditions:
                 con.t = t
+
 
 
     def direct_solver(self, prob):
