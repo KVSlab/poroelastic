@@ -33,8 +33,8 @@ def set_xdmf_parameters(f):
     f.parameters['rewrite_function_mesh'] = False
 
 # Files for output
-f1 = df.XDMFFile(comm, '../data/demo_unitcube/uf.xdmf')
-f2 = df.XDMFFile(comm, '../data/demo_unitcube/du.xdmf')
+f1 = df.XDMFFile(comm, '../data/demo_unitsquare/uf.xdmf')
+f2 = df.XDMFFile(comm, '../data/demo_unitsquare/du.xdmf')
 
 set_xdmf_parameters(f1)
 set_xdmf_parameters(f2)
