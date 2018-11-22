@@ -1,4 +1,5 @@
 from dolfin import *
+import sys
 
 from poroelastic.material_models import *
 import poroelastic.utils as utils
@@ -16,6 +17,7 @@ parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 class PoroelasticProblem(object):
 
     def __init__(self, mesh, params):
+        self.mesh = mesh
         self.params = params
 
         # Create function spaces
@@ -44,7 +46,6 @@ class PoroelasticProblem(object):
     def create_function_spaces(self, mesh):
         V1 = VectorElement('P', mesh.ufl_cell(), 1)
         V2 = VectorElement('P', mesh.ufl_cell(), 2)
-        R0 = FiniteElement('R', mesh.ufl_cell(), 0)
         P1 = FiniteElement('P', mesh.ufl_cell(), 1)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
         FS_S = FunctionSpace(mesh, TH)
@@ -53,33 +54,19 @@ class PoroelasticProblem(object):
         return FS_S, FS_F, FS_V
 
 
-    def add_solid_dirichlet_condition(self, condition, boundary, n=-1):
+    def add_solid_dirichlet_condition(self, condition, boundary, n=-1, time=False):
         if n != -1:
             self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
                                 boundary))
         else:
             self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
                                 boundary))
+        if time: self.tconditions.append(condition)
 
 
-    def add_fluid_dirichlet_condition(self, condition, boundary):
+    def add_fluid_dirichlet_condition(self, condition, boundary, time=False):
         self.fbcs.append(DirichletBC(self.FS_F, condition, boundary))
-
-
-    def add_fluid_t_dirichlet_condition(self, condition, boundary):
-        self.fbcs.append(DirichletBC(self.FS_F, condition, boundary))
-        self.tconditions.append(condition)
-
-
-    def add_solid_t_dirichlet_condition(self, condition, boundary, n=-1):
-        if n != -1:
-            self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
-                                boundary))
-            self.tconditions.append(condition)
-        else:
-            self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
-                                boundary))
-            self.tconditions.append(condition)
+        if time: self.tconditions.append(condition)
 
 
     def sum_fluid_mass(self):
@@ -222,6 +209,9 @@ class PoroelasticProblem(object):
 
             if mpiRank == 0: utils.print_time(t)
 
+            for con in self.tconditions:
+                con.t = t
+
             for x in range(10):
 
                 msol.solve()
@@ -236,10 +226,11 @@ class PoroelasticProblem(object):
 
             yield self.Uf, self.Us, t
 
-            t += dt
+            dU, L = self.Us.split(deepcopy=True)
+            AF = VectorFunctionSpace(self.mesh, "P", 1)
+            ALE.move(self.mesh, project(dU, AF))
 
-            for con in self.tconditions:
-                con.t = t
+            t += dt
 
 
 

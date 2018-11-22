@@ -27,7 +27,7 @@ squeeze = df.Expression("-0.01*t*x[0]", t=0.0, degree=2)
 
 pprob.add_solid_dirichlet_condition(zero, left, n=0)
 pprob.add_solid_dirichlet_condition(zero, bottom, n=2)
-pprob.add_solid_t_dirichlet_condition(squeeze, top, n=2)
+pprob.add_solid_dirichlet_condition(squeeze, top, n=2, time=True)
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True

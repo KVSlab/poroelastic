@@ -9,7 +9,7 @@ import dolfin as df
 
 comm = df.mpi_comm_world()
 
-nx = 20
+nx = 100
 mesh = df.UnitSquareMesh(nx, nx)
 params = poro.ParamParser("../data/demo_unitcube.cfg")
 
@@ -24,8 +24,9 @@ zero = df.Constant(0.0)
 dt = params.params["dt"]
 squeeze = df.Expression("-0.01*t", t=0.0, degree=1)
 
-pprob.add_solid_t_dirichlet_condition(squeeze, top, n=1)
+pprob.add_solid_dirichlet_condition(squeeze, top, n=1, time=True)
 pprob.add_solid_dirichlet_condition(zero, bottom, n=1)
+pprob.add_solid_dirichl
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
