@@ -16,8 +16,9 @@ params = poro.ParamParser("../data/demo_unitcube.cfg")
 pprob = poro.PoroelasticProblem(mesh, params)
 
 # Mark boundary subdomians
-bottom = "near(x[1], 0.0) && on_boundary"
+right = "near(x[0], 1.0) && on_boundary"
 top = "near(x[1], 1.0) && on_boundary"
+bottom = "near(x[1], 0.0) && on_boundary"
 
 # Define Dirichlet boundary conditions
 zero = df.Constant(0.0)
@@ -25,8 +26,8 @@ dt = params.params["dt"]
 squeeze = df.Expression("-0.01*t", t=0.0, degree=1)
 
 pprob.add_solid_dirichlet_condition(squeeze, top, n=1, time=True)
+pprob.add_solid_dirichlet_condition(zero, right, n=0)
 pprob.add_solid_dirichlet_condition(zero, bottom, n=1)
-pprob.add_solid_dirichl
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
