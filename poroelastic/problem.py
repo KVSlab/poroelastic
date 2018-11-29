@@ -54,17 +54,18 @@ class PoroelasticProblem(object):
         return FS_S, FS_F, FS_V
 
 
-    def add_solid_dirichlet_condition(self, condition, boundary, n=-1, time=False):
+    def add_solid_dirichlet_condition(self, condition, boundary, n=-1,
+                                        time=False, **kwargs):
         if n != -1:
             self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
-                                boundary))
+                                boundary, **kwargs))
         else:
             self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
-                                boundary))
+                                boundary, **kwargs))
         if time: self.tconditions.append(condition)
 
 
-    def add_fluid_dirichlet_condition(self, condition, boundary, time=False):
+    def add_fluid_dirichlet_condition(self, condition, boundary, **kwargs):
         self.fbcs.append(DirichletBC(self.FS_F, condition, boundary))
         if time: self.tconditions.append(condition)
 
@@ -143,7 +144,6 @@ class PoroelasticProblem(object):
         A = rho * J * inv(F) * K * inv(F.T)
         Form = k*(m - m_n)*vm*dx + inner(grad(M), k*dU)*vm*dx -\
                 rho*qi*vm*dx - inner(-A*grad(p), grad(vm))*dx
-
         dF = derivative(Form, m)
 
         return Form, dF
@@ -176,6 +176,31 @@ class PoroelasticProblem(object):
         dF = derivative(Form, U)
 
         return Form, dF
+
+
+    def calculate_flow_vector(self):
+        dU, L = split(self.Us)
+
+        # Parameters
+        rho = self.rho()
+        phi0 = self.phi()
+        Ki = self.K()
+
+        # Kinematics from solid
+        d = dU.geometric_dimension()
+        I = Identity(d)
+        F = I + grad(dU)
+        J = det(F)
+        K = Ki*I
+
+        # Fluid-solid coupling
+        phi = (self.mf + rho*phi0)/(rho*J)
+        Jphi = variable(J*phi)
+        p = diff(self.Psi, Jphi) - L
+
+        A = rho * J * inv(F) * K * inv(F.T)
+        return project(-A*grad(p), self.FS_V)
+
 
 
     def choose_solver(self, prob):
@@ -222,7 +247,8 @@ class PoroelasticProblem(object):
             self.Us_n.assign(self.Us)
 
             # Calculate fluid vector
-            fsol.solve()
+            # fsol.solve()
+            self.Uf = self.calculate_flow_vector()
 
             yield self.Uf, self.Us, t
 
