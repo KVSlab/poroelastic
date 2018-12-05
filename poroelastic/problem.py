@@ -117,7 +117,7 @@ class PoroelasticProblem(object):
         # Parameters
         rho = self.rho()
         phi0 = self.phi()
-        qi = Constant(0.1)
+        qi = Constant(1e-5)
         Ki = self.K()
         k = Constant(1/self.dt())
         th, th_ = self.theta()
@@ -132,7 +132,7 @@ class PoroelasticProblem(object):
         # Fluid-solid coupling
         phi = (m + rho*phi0)/(rho*J)
         Jphi = variable(J*phi)
-        p = diff(self.Psi, Jphi) - L
+        p = project(diff(self.Psi, Jphi) - L, self.FS_F)
 
         # theta-rule / Crank-Nicolson
         M = th*m + th_*m_n
@@ -239,8 +239,8 @@ class PoroelasticProblem(object):
 
             for x in range(10):
 
-                msol.solve()
                 ssol.solve()
+                msol.solve()
 
             # Store current solution as previous
             self.mf_n.assign(self.mf)
@@ -248,7 +248,8 @@ class PoroelasticProblem(object):
 
             # Calculate fluid vector
             # fsol.solve()
-            self.Uf = self.calculate_flow_vector()
+            # self.Uf = self.calculate_flow_vector()
+            self.Uf = self.mf
 
             yield self.Uf, self.Us, t
 
