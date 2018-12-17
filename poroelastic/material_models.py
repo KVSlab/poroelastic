@@ -27,8 +27,8 @@ class NeoHookeanMaterial(object):
 
     def __init__(self):
         # Parameters
-        self.E = 10.0
-        self.nu = 0.3
+        E = 10.0
+        nu = 0.3
         self.mu = Constant(E/(2*(1 + nu)))
         self.lm = Constant(E*nu/((1 + nu)*(1 - 2*nu)))
 

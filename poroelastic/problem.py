@@ -1,4 +1,5 @@
 from dolfin import *
+from ufl import grad as ufl_grad
 import sys
 
 from poroelastic.material_models import *
@@ -11,7 +12,7 @@ parameters["form_compiler"]["representation"] = "uflacs"
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
-# set_log_level(30)
+set_log_level(20)
 
 
 class PoroelasticProblem(object):
@@ -21,7 +22,7 @@ class PoroelasticProblem(object):
         self.params = params
 
         # Create function spaces
-        self.FS_S, self.FS_F, self.FS_V = self.create_function_spaces(mesh)
+        self.FS_S, self.FS_F, self.FS_V = self.create_function_spaces()
 
         # Create solution functions
         self.Us = Function(self.FS_S)
@@ -29,6 +30,7 @@ class PoroelasticProblem(object):
         self.mf = Function(self.FS_F)
         self.mf_n = Function(self.FS_F)
         self.Uf = Function(self.FS_V)
+        self.p = Function(self.FS_F)
 
         self.sbcs = []
         self.fbcs = []
@@ -40,17 +42,17 @@ class PoroelasticProblem(object):
         # Set variational forms
         self.SForm, self.dSForm, self.Psi = self.set_solid_variational_form(material)
         self.MForm, self.dMForm = self.set_fluid_variational_form()
-        self.FForm, self.dFForm = self.set_flow_variational_form()
 
 
-    def create_function_spaces(self, mesh):
-        V1 = VectorElement('P', mesh.ufl_cell(), 1)
-        V2 = VectorElement('P', mesh.ufl_cell(), 2)
-        P1 = FiniteElement('P', mesh.ufl_cell(), 1)
+    def create_function_spaces(self):
+        V1 = VectorElement('P', self.mesh.ufl_cell(), 1)
+        V2 = VectorElement('P', self.mesh.ufl_cell(), 2)
+        P1 = FiniteElement('P', self.mesh.ufl_cell(), 1)
+        P2 = FiniteElement('P', self.mesh.ufl_cell(), 2)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
-        FS_S = FunctionSpace(mesh, TH)
-        FS_F = FunctionSpace(mesh, P1)
-        FS_V = FunctionSpace(mesh, V1)
+        FS_S = FunctionSpace(self.mesh, TH)
+        FS_F = FunctionSpace(self.mesh, P2)
+        FS_V = FunctionSpace(self.mesh, V1)
         return FS_S, FS_F, FS_V
 
 
@@ -88,14 +90,14 @@ class PoroelasticProblem(object):
         # Kinematics
         d = dU.geometric_dimension()
         I = Identity(d)
-        F = I + grad(dU)
-        J = det(F)
-        C = F.T*F
-        E = 0.5 * (C - I)
+        F = variable(I + ufl_grad(dU))
+        J = variable(det(F))
+        C = variable(F.T*F)
+        E = variable(0.5 * (C - I))
 
         # modified Cauchy-Green invariants
-        I1 = J**(-2/3) * tr(C)
-        I2 = J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C))
+        I1 = variable(J**(-2/3) * tr(C))
+        I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
 
         # Material definition
         Psi = material.constitutive_law(I1, I2, J, m, rho)
@@ -112,12 +114,13 @@ class PoroelasticProblem(object):
         m = self.mf
         m_n = self.mf_n
         vm = TestFunction(self.FS_F)
-        dU, L = split(self.Us)
+        dU, L = self.Us.split()
+        dU_n, L_n = self.Us_n.split()
 
         # Parameters
         rho = self.rho()
         phi0 = self.phi()
-        qi = Constant(1e-5)
+        qi = Constant(1e-1)
         Ki = self.K()
         k = Constant(1/self.dt())
         th, th_ = self.theta()
@@ -125,82 +128,62 @@ class PoroelasticProblem(object):
         # Kinematics from solid
         d = dU.geometric_dimension()
         I = Identity(d)
-        F = I + grad(dU)
-        J = det(F)
-        K = Ki*I
+        F = variable(I + ufl_grad(dU))
+        J = variable(det(F))
 
-        # Fluid-solid coupling
-        phi = (m + rho*phi0)/(rho*J)
-        Jphi = variable(J*phi)
-        p = project(diff(self.Psi, Jphi) - L, self.FS_F)
+        VK = TensorFunctionSpace(self.mesh, "P", 1, shape=(2,2))
+        exp = Expression((('1.0', '0.0'),('0.0', '1.0')), degree=2)
+        self.K = project(Ki*exp, VK)
 
         # theta-rule / Crank-Nicolson
         M = th*m + th_*m_n
 
-        # Solid velocity
-        Vt_s = variable(k*dU)
-
         # Fluid variational form
-        A = rho * J * inv(F) * K * inv(F.T)
-        Form = k*(m - m_n)*vm*dx + inner(grad(M), k*dU)*vm*dx -\
-                rho*qi*vm*dx - inner(-A*grad(p), grad(vm))*dx
+        A = variable(rho * J * inv(F) * self.K * inv(F.T))
+        Form = k*(m - m_n)*vm*dx + dot(grad(M), k*(dU-dU_n))*vm*dx -\
+                rho*qi*vm*dx - inner(-A*grad(self.p), grad(vm))*dx
         dF = derivative(Form, m)
 
         return Form, dF
 
 
-    def set_flow_variational_form(self):
-        U = self.Uf
-        v = TestFunction(self.FS_V)
-        dU, L = split(self.Us)
-
-        # Parameters
+    def fluid_solid_coupling(self):
+        dU, L = self.Us.split()
         rho = self.rho()
         phi0 = self.phi()
-        Ki = self.K()
-
-        # Kinematics from solid
         d = dU.geometric_dimension()
         I = Identity(d)
-        F = I + grad(dU)
-        J = det(F)
-        K = Ki*I
-
-        # Fluid-solid coupling
+        F = variable(I + ufl_grad(dU))
+        J = variable(det(F))
         phi = (self.mf + rho*phi0)/(rho*J)
-        Jphi = variable(J*phi)
-        p = diff(self.Psi, Jphi) - L
-
-        # from IPython import embed; embed()
-        Form = (1/rho)*inner(F*U, v)*dx + inner(J*Ki*inv(F.T)*grad(p), v)*dx
-        dF = derivative(Form, U)
-
-        return Form, dF
+        self.p = project(diff(self.Psi, variable(J*phi)) - L, self.FS_F)
 
 
     def calculate_flow_vector(self):
-        dU, L = split(self.Us)
+        dU, L = self.Us.split()
+        dU_n, L_n = self.Us_n.split()
+        mv = TestFunction(self.FS_V)
 
         # Parameters
-        rho = self.rho()
+        rho = Constant(self.rho())
         phi0 = self.phi()
-        Ki = self.K()
+        k = Constant(1/self.dt())
 
         # Kinematics from solid
         d = dU.geometric_dimension()
         I = Identity(d)
-        F = I + grad(dU)
-        J = det(F)
-        K = Ki*I
+        F = variable(I + ufl_grad(dU))
+        J = variable(det(F))
+        phi = variable(self.mf + rho*phi0)/(rho*J)
 
-        # Fluid-solid coupling
-        phi = (self.mf + rho*phi0)/(rho*J)
-        Jphi = variable(J*phi)
-        p = diff(self.Psi, Jphi) - L
+        A = variable(rho*self.K*inv(F.T))
+        self.Uf = project(phi*(-A*grad(self.p) - k*(dU-dU_n)), self.FS_V)
 
-        A = rho * J * inv(F) * K * inv(F.T)
-        return project(-A*grad(p), self.FS_V)
 
+    def move_mesh(self):
+        dU, L = self.Us.split(deepcopy=True)
+        ALE.move(self.mesh, project(dU, VectorFunctionSpace(self.mesh, 'P', 1)))
+        self.create_function_spaces()
 
 
     def choose_solver(self, prob):
@@ -218,7 +201,6 @@ class PoroelasticProblem(object):
         t = 0.0
         dt = self.dt()
 
-        # from IPython import embed; embed()
         mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
                                             J=self.dMForm)
         msol = self.choose_solver(mprob)
@@ -227,9 +209,6 @@ class PoroelasticProblem(object):
                                             J=self.dSForm)
         ssol = self.choose_solver(sprob)
 
-        fprob = NonlinearVariationalProblem(self.FForm, self.Uf, J=self.dFForm)
-        fsol = self.choose_solver(fprob)
-
         while t < self.params.params['tf']:
 
             if mpiRank == 0: utils.print_time(t)
@@ -237,27 +216,26 @@ class PoroelasticProblem(object):
             for con in self.tconditions:
                 con.t = t
 
-            for x in range(10):
+            for x in range(3):
 
-                ssol.solve()
                 msol.solve()
+                ssol.solve()
+                self.fluid_solid_coupling()
 
             # Store current solution as previous
             self.mf_n.assign(self.mf)
             self.Us_n.assign(self.Us)
 
             # Calculate fluid vector
-            # fsol.solve()
-            # self.Uf = self.calculate_flow_vector()
-            self.Uf = self.mf
+            self.calculate_flow_vector()
 
             yield self.Uf, self.Us, t
 
-            dU, L = self.Us.split(deepcopy=True)
-            AF = VectorFunctionSpace(self.mesh, "P", 1)
-            ALE.move(self.mesh, project(dU, AF))
+            # self.move_mesh()
 
             t += dt
+
+            # sys.exit()
 
 
 
