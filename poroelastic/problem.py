@@ -1,6 +1,7 @@
 from dolfin import *
 from ufl import grad as ufl_grad
 import sys
+import numpy as np
 
 from poroelastic.material_models import *
 import poroelastic.utils as utils
@@ -52,7 +53,7 @@ class PoroelasticProblem(object):
         P2 = FiniteElement('P', self.mesh.ufl_cell(), 2)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
         FS_S = FunctionSpace(self.mesh, TH)
-        FS_F = FunctionSpace(self.mesh, P2)
+        FS_F = FunctionSpace(self.mesh, P1)
         FS_V = FunctionSpace(self.mesh, V1)
         return FS_S, FS_F, FS_V
 
@@ -68,8 +69,8 @@ class PoroelasticProblem(object):
         if time: self.tconditions.append(condition)
 
 
-    def add_fluid_dirichlet_condition(self, condition, boundary, **kwargs):
-        self.fbcs.append(DirichletBC(self.FS_F, condition, boundary))
+    def add_fluid_dirichlet_condition(self, condition, boundary, marker, **kwargs):
+        self.fbcs.append(DirichletBC(self.FS_F, condition, boundary, marker))
         if time: self.tconditions.append(condition)
 
 
@@ -102,9 +103,10 @@ class PoroelasticProblem(object):
 
         # Material definition
         Psi = material.constitutive_law(I1, I2, J, m, rho)
-        Psic = Psi*dx + L*(J - Constant(1) - m/rho)*dx
+        # Psi = material.constitutive_law(I1, J)
+        Psic = Psi + L*(J-m/rho-Constant(1))
 
-        Form = derivative(Psic, U, TestFunction(self.FS_S))
+        Form = derivative(Psic*dx, U, TestFunction(self.FS_S))
         dF = derivative(Form, U, TrialFunction(self.FS_S))
 
         return Form, dF, Psi
@@ -112,8 +114,8 @@ class PoroelasticProblem(object):
 
     def set_fluid_variational_form(self):
 
-        # m = self.mf
-        m = TrialFunction(self.FS_F)
+        m = self.mf
+        # m = TrialFunction(self.FS_F)
         m_n = self.mf_n
         vm = TestFunction(self.FS_F)
         dU, L = self.Us.split()
@@ -122,7 +124,8 @@ class PoroelasticProblem(object):
         # Parameters
         rho = self.rho()
         phi0 = self.phi()
-        qi = Constant(1e1)
+        # qi = Constant(2.3e-2)
+        qi = Constant(1e-2)
         Ki = self.K()
         k = Constant(1/self.dt())
         th, th_ = self.theta()
@@ -133,9 +136,13 @@ class PoroelasticProblem(object):
         F = variable(I + ufl_grad(dU))
         J = variable(det(F))
 
-        VK = TensorFunctionSpace(self.mesh, "P", 1, shape=(2,2))
-        exp = Expression((('1.0', '0.0'),('0.0', '1.0')), degree=2)
-        self.K = project(Ki*exp, VK)
+        VK = TensorFunctionSpace(self.mesh, "P", 1)
+        if d == 2:
+            exp = Expression((('0.5', '0.0'),('0.0', '1.0')), degree=1)
+        elif d == 3:
+            exp = Expression((('0.5', '0.0', '0.0'),('0.0', '1.0', '0.0'),
+                                ('0.0', '0.0', '1.0')), degree=1)
+        self.K = project(Ki*exp, VK, solver_type='mumps')
 
         # theta-rule / Crank-Nicolson
         M = th*m + th_*m_n
@@ -144,21 +151,28 @@ class PoroelasticProblem(object):
         A = variable(rho * J * inv(F) * self.K * inv(F.T))
         Form = k*(m - m_n)*vm*dx + dot(grad(M), k*(dU))*vm*dx -\
                 rho*qi*vm*dx - inner(-A*grad(self.p), grad(vm))*dx
-        # dF = derivative(Form, m)
+        dF = derivative(Form, m, TrialFunction(self.FS_F))
 
-        # return Form, dF
-        return Form, None
+        return Form, dF
+        # return Form, None
 
 
     def fluid_solid_coupling(self):
         dU, L = self.Us.split()
         rho = self.rho()
         phi0 = self.phi()
-        Jphi = variable((self.mf + rho*phi0)/rho)
-        self.p = project(diff(self.Psi, Jphi) - L, self.FS_F)
+        d = dU.geometric_dimension()
+        I = Identity(d)
+        F = variable(I + ufl_grad(dU))
+        J = variable(det(F))
+        Jphi = variable(J*(self.mf + rho*phi0)/rho)
+        # self.p = project(diff(self.Psi, Jphi) - L, self.FS_F)
+        p = Expression("1000 * (1 - exp(-pow(x[0], 2)/0.25))", degree=1)
+        self.p = project(p, self.FS_F)
 
 
     def calculate_flow_vector(self):
+        FS = VectorFunctionSpace(self.mesh, 'P', 1)
         dU, L = self.Us.split()
         m = TrialFunction(self.FS_V)
         mv = TestFunction(self.FS_V)
@@ -178,7 +192,8 @@ class PoroelasticProblem(object):
         a = (1/rho)*inner(F*m, mv)*dx
         L = inner(-J*self.K*inv(F.T)*grad(self.p), mv)*dx
 
-        solve(a == L, self.Uf)
+        solve(a == L, self.Uf, solver_parameters={"linear_solver": "minres",
+                                                "preconditioner": "hypre_amg"})
 
 
     def move_mesh(self):
@@ -197,18 +212,19 @@ class PoroelasticProblem(object):
         comm = mpi_comm_world()
         mpiRank = MPI.rank(comm)
 
-        TOL = self.TOL()
+        tol = self.TOL()
+        maxiter = 50
         t = 0.0
         dt = self.dt()
 
-        # mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
-        #                                     J=self.dMForm)
-        # msol = self.choose_solver(mprob)
-        a_M = lhs(self.MForm)
-        L_M = rhs(self.MForm)
-        A_M = assemble(a_M)
-        msol = LUSolver(A_M, "mumps")
-        msol.parameters['reuse_factorization'] = True
+        mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
+                                            J=self.dMForm)
+        msol = self.choose_solver(mprob)
+        # a_M = lhs(self.MForm)
+        # L_M = rhs(self.MForm)
+        # A_M = assemble(a_M)
+        # msol = LUSolver(A_M, "mumps")
+        # msol.parameters['reuse_factorization'] = True
 
         sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.sbcs,
                                             J=self.dSForm)
@@ -221,13 +237,22 @@ class PoroelasticProblem(object):
             for con in self.tconditions:
                 con.t = t
 
-            b_M = assemble(L_M)
+            # b_M = assemble(L_M)
+            # for bc in self.fbcs:
+            #     bc.apply(b_M)
 
-            for x in range(1):
-
-                msol.solve(A_M, self.mf.vector(), b_M)
+            iter = 0
+            eps = 1
+            mf_ = Function(self.FS_F)
+            while eps > tol and iter < maxiter:
+                iter += 1
                 ssol.solve()
+                msol.solve()
+                # msol.solve(A_M, self.mf.vector(), b_M)
                 self.fluid_solid_coupling()
+                diff = self.mf.vector().get_local() - mf_.vector().get_local()
+                eps = np.linalg.norm(diff, ord=np.Inf)
+                mf_.assign(self.mf)
 
             # Store current solution as previous
             self.mf_n.assign(self.mf)
