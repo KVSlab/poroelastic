@@ -41,11 +41,9 @@ bottom.mark(boundaries, 3)
 zero = df.Constant(0.0)
 vzero = df.Constant((0.0, 0.0))
 dt = params.params["dt"]
-squeeze = df.Expression("-1e-2*t", t=0.0, degree=1)
 
-pprob.add_solid_dirichlet_condition(zero, boundaries, 1, n=1)
-# pprob.add_solid_dirichlet_condition(squeeze, boundaries, 2, n=1, time=True)
-pprob.add_solid_dirichlet_condition(zero, boundaries, 3, n=0)
+pprob.add_solid_dirichlet_condition(zero, boundaries, 1, n=0)
+pprob.add_solid_dirichlet_condition(zero, boundaries, 3, n=1)
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
@@ -66,7 +64,7 @@ set_xdmf_parameters(f4)
 
 for Mf, Uf, p, Us, t in pprob.solve():
 
-    dU, L = Us.split()
+    dU, L = Us.split(True)
 
     poro.write_file(f1, Uf, 'uf', t)
     poro.write_file(f2, Mf, 'mf', t)
