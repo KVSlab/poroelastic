@@ -17,13 +17,35 @@ set_log_level(20)
 
 
 class PoroelasticProblem(object):
+    """
+    Boundary marker labels:
+    - inflow (Neumann BC in fluid mass increase)
+    - outflow (Neumann BC in fluid mass increase)
+    """
 
-    def __init__(self, mesh, params):
+    def __init__(self, mesh, params, boundaries=None, markers={}, fibers=None, territories=None):
         self.mesh = mesh
         self.params = params
+        self.markers = markers
+
+        if boundaries != None:
+            self.ds = ds(subdomain_data=boundaries)
+        else:
+            self.ds = ds()
+
+        if territories != None:
+            self.dx = dx(subdomain_data=territories)
+            self.territories = set(territories.array())
+        else:
+            self.dx = dx()
 
         # Create function spaces
         self.FS_S, self.FS_F, self.FS_V = self.create_function_spaces()
+
+        if fibers != None:
+            self.fibers = Function(self.FS_V, fibers)
+        else:
+            self.fibers = None
 
         # Create solution functions
         self.Us = Function(self.FS_S)
@@ -41,7 +63,7 @@ class PoroelasticProblem(object):
         self.material = IsotropicExponentialFormMaterial()
 
         # Set variational forms
-        self.SForm, self.dSForm = self.set_solid_variational_form()
+        self.SForm, self.dSForm = self.set_solid_variational_form({})
         self.MForm, self.dMForm = self.set_fluid_variational_form()
 
 
@@ -57,30 +79,33 @@ class PoroelasticProblem(object):
         return FS_S, FS_F, FS_V
 
 
-    def add_solid_dirichlet_condition(self, condition, boundary, marker, n=-1,
-                                        time=False, **kwargs):
-        if n != -1:
+    def add_solid_dirichlet_condition(self, condition, *args, **kwargs):
+        if 'n' in kwargs.keys():
+            n = kwargs['n']
             self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
-                                boundary, marker, **kwargs))
+                                *args))
         else:
             self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
-                                boundary, marker, **kwargs))
-        if time: self.tconditions.append(condition)
+                                *args))
+        if 'time' in kwargs.keys() and kargs['time']:
+            self.tconditions.append(condition)
 
 
-    def add_fluid_dirichlet_condition(self, condition, boundary, marker, **kwargs):
-        self.fbcs.append(DirichletBC(self.FS_F, condition, boundary, marker))
-        if time: self.tconditions.append(condition)
+    def add_solid_neumann_conditions(self, conditions):
+        neumann_bcs = conditions
+        self.SForm, self.dSForm = self.set_solid_variational_form(neumann_bcs)
 
 
     def sum_fluid_mass(self):
         return self.mf/self.params.params['rho']
 
 
-    def set_solid_variational_form(self):
+    def set_solid_variational_form(self, neumann_bcs):
 
         U = self.Us
         dU, L = split(self.Us)
+        V = TestFunction(self.FS_S)
+        v, w = split(V)
 
         # parameters
         rho = Constant(self.params.params['rho'])
@@ -89,6 +114,7 @@ class PoroelasticProblem(object):
         m = self.mf
 
         # Kinematics
+        n = FacetNormal(self.mesh)
         d = dU.geometric_dimension()
         I = Identity(d)
         F = variable(I + ufl_grad(dU))
@@ -100,9 +126,12 @@ class PoroelasticProblem(object):
         I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
 
         Psi = self.material.constitutive_law(F, M=self.mf, rho=self.rho())
-        Psic = Psi + L*(J-m/rho-Constant(1))
+        Psic = Psi*dx + L*(J-m/rho-Constant(1))*dx
 
-        Form = derivative(Psic*dx, U, TestFunction(self.FS_S))
+        for boundary, condition in neumann_bcs.items():
+            Psic -= dot(condition*n, dU)*self.ds(boundary)
+
+        Form = derivative(Psic, U, V)
         dF = derivative(Form, U, TrialFunction(self.FS_S))
 
         return Form, dF
@@ -117,9 +146,10 @@ class PoroelasticProblem(object):
         dU_n, L_n = self.Us_n.split(True)
 
         # Parameters
+        self.qi = self.q_in()
+        q_out = self.q_out()
         rho = self.rho()
-        qi = Expression("1e-1 * (1 - exp(-pow(x[0], 2)/0.25))", degree=2)
-        Ki = self.K()
+        si = Constant(0.0)
         k = Constant(1/self.dt())
         th, th_ = self.theta()
 
@@ -129,21 +159,27 @@ class PoroelasticProblem(object):
         F = variable(I + ufl_grad(dU))
         J = variable(det(F))
 
-        VK = TensorFunctionSpace(self.mesh, "P", 1)
-        if d == 2:
-            exp = Expression((('0.5', '0.0'),('0.0', '1.0')), degree=1)
-        elif d == 3:
-            exp = Expression((('0.5', '0.1', '0.0'),('0.0', '1.0', '0.0'),
-                                ('0.0', '0.1', '1.0')), degree=1)
-        self.K = project(Ki*exp, VK, solver_type='mumps')
+        # VK = TensorFunctionSpace(self.mesh, "P", 1)
+        # if d == 2:
+        #     exp = Expression((('0.5', '0.0'),('0.0', '1.0')), degree=1)
+        # elif d == 3:
+        #     exp = Expression((('1.0', '0.0', '0.0'),('0.0', '1.0', '0.0'),
+        #                         ('0.0', '0.0', '1.0')), degree=1)
+        # self.K = project(Ki*exp, VK, solver_type='mumps')
 
         # theta-rule / Crank-Nicolson
         M = th*m + th_*m_n
 
         # Fluid variational form
-        A = variable(rho * J * inv(F) * self.K * inv(F.T))
+        A = variable(rho * J * inv(F) * self.K() * inv(F.T))
         Form = k*(m - m_n)*vm*dx + dot(grad(M), k*(dU-dU_n))*vm*dx -\
-                rho*qi*vm*dx - inner(-A*grad(self.p), grad(vm))*dx
+                inner(-A*grad(self.p), grad(vm))*dx + rho*si*vm*dx
+        # if self.markers == {}:
+        Form += -self.rho()*self.qi*vm*dx + self.rho()*q_out*vm*dx
+        # for i in self.territories:
+        #     try: Form += -self.rho()*qi*vm*self.dx()
+        #     except: pass
+
         dF = derivative(Form, m, TrialFunction(self.FS_F))
 
         return Form, dF
@@ -185,15 +221,18 @@ class PoroelasticProblem(object):
         phi = (self.mf + rho*phi0)
 
         a = (1/rho)*inner(F*m, mv)*dx
-        L = inner(-J*self.K*inv(F.T)*grad(self.p), mv)*dx
+        L = inner(-J*self.K()*inv(F.T)*grad(self.p), mv)*dx
 
         solve(a == L, self.Uf, solver_parameters={"linear_solver": "minres",
                                                 "preconditioner": "hypre_amg"})
 
 
+
     def move_mesh(self):
         dU, L = self.Us.split()
         ALE.move(self.mesh, project(dU, VectorFunctionSpace(self.mesh, 'P', 1)))
+        # Adjust source term to new spatial configuration
+        self.qi = self.qi * inner(dU, dU)
 
 
     def choose_solver(self, prob):
@@ -264,8 +303,8 @@ class PoroelasticProblem(object):
     def iterative_solver(self, prob):
         TOL = self.TOL()
         sol = NonlinearVariationalSolver(prob)
-        sol.parameters['newton_solver']['linear_solver'] = 'minres'
-        sol.parameters['newton_solver']['preconditioner'] = 'jacobi'
+        sol.parameters['newton_solver']['linear_solver'] = 'gmres'
+        sol.parameters['newton_solver']['preconditioner'] = 'hypre_euclid'
         sol.parameters['newton_solver']['absolute_tolerance'] = TOL
         sol.parameters['newton_solver']['relative_tolerance'] = TOL
         sol.parameters['newton_solver']['maximum_iterations'] = 1000
@@ -278,14 +317,36 @@ class PoroelasticProblem(object):
     def phi(self):
         return Constant(self.params.params['phi'])
 
+    def q_out(self):
+        if isinstance(self.params.params['qo'], str):
+            return Expression(self.params.params['qo'], degree=1)
+        else:
+            return Constant(self.params.params['qo'])
+        # return Expression("A * exp( - ( 0.5*pow(x[0]-0.5, 2) + 0.5*pow(x[1]-0.5, 2) ) )", A=1e-3, degree=1)
+
+    def q_in(self):
+        if isinstance(self.params.params['qi'], str):
+            return Expression(self.params.params['qi'], degree=1)
+        else:
+            return Constant(self.params.params['qi'])
+
     def K(self):
-        kparam = self.params.params['K']
-        if isinstance(kparam, str):
-            K = Expression(self.params.params['K'],
-                                            element=self.FS_F.ufl_element())
-        elif isinstance(kparam, float) or isinstance(kparam, int):
-            K = Constant(kparam)
-        return K
+        # if self.N == 1:
+        d = self.mf.geometric_dimension()
+        I = Identity(d)
+        K = Constant(self.params.params['K'])
+        if self.fibers:
+            return K*I
+        else:
+            return K*I
+        # else:
+        #     d = self.u[0].geometric_dimension()
+        #     I = Identity(d)
+        #     K = [Constant(k) for k in self.params.params['K']]
+        #     if self.fiber:
+        #         return [k*self.fiber*I for k in K]
+        #     else:
+        #         return [k*I for k in K]
 
     def dt(self):
         return self.params.params['dt']

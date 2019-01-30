@@ -3,7 +3,7 @@ __author__ = "Alexandra Diem <alexandra@simula.no>"
 from scipy.interpolate import interp1d
 from itertools import chain
 
-from dolfin import set_log_level
+import dolfin as df
 
 
 def read_time_data(fname, unit):
@@ -18,15 +18,15 @@ def read_time_data(fname, unit):
 
 
 def write_file(f, u, label, t):
-    set_log_level(40)
+    df.set_log_level(40)
     f.write_checkpoint(u, label, t)
-    set_log_level(30)
+    df.set_log_level(30)
 
 
 def read_file(f, u, label, i):
-    set_log_level(40)
+    df.set_log_level(40)
     f.read_checkpoint(u, label, i)
-    set_log_level(30)
+    df.set_log_level(30)
     return u
 
 
