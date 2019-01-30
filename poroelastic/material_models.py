@@ -4,6 +4,15 @@ set_log_level(30)
 
 
 class IsotropicExponentialFormMaterial(object):
+# Config file parameters:
+# material = "isotropic exponential form"
+# a = 1.0
+# D1 = 2.0
+# D2 = 0.2
+# D3 = 2.0
+# Qi1 = 1.0
+# Qi2 = 0.5
+# Qi3 = 1.0
 
     def __init__(self, param):
         # Parameters
@@ -34,7 +43,15 @@ class IsotropicExponentialFormMaterial(object):
         return Psi
 
 
-class LinearPoroelastic(object):
+class LinearPoroelasticMaterial(object):
+# Config file parameters:
+# material = "linear poroelastic"
+# kappa0 = 0.01 * Pa
+# kappa1 = 2e3 * Pa
+# kappa2 = 33 * Pa
+# K = 2.2e5 * Pa
+# M = 2.18e5 * Pa
+# b = 1
 
     def __init__(self, param):
         # Parameters
