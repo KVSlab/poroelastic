@@ -60,7 +60,12 @@ class PoroelasticProblem(object):
         self.tconditions = []
 
         # Material
-        self.material = IsotropicExponentialFormMaterial()
+        if self.params.material["material"] == "isotropic exponential form":
+            self.material = IsotropicExponentialFormMaterial(self.params.material)
+        elif self.params.material["material"] == "linear poroelastic"
+            self.material = LinearPoroelasticMaterial(self.params.material)
+        elif self.params.material["material"] == "Neo-Hookean"
+            self.material = NeoHookeanMaterial(self.params.material)
 
         # Set variational forms
         self.SForm, self.dSForm = self.set_solid_variational_form({})
@@ -82,11 +87,14 @@ class PoroelasticProblem(object):
     def add_solid_dirichlet_condition(self, condition, *args, **kwargs):
         if 'n' in kwargs.keys():
             n = kwargs['n']
+            dkwargs = {}
+            if 'method' in kwargs.keys():
+                dkwargs['method'] = kwargs['method']
             self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
-                                *args))
+                                *args, **dkwargs))
         else:
             self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
-                                *args))
+                                *args, **kwargs))
         if 'time' in kwargs.keys() and kargs['time']:
             self.tconditions.append(condition)
 
@@ -125,7 +133,7 @@ class PoroelasticProblem(object):
         I1 = variable(J**(-2/3) * tr(C))
         I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
 
-        Psi = self.material.constitutive_law(F, M=self.mf, rho=self.rho())
+        Psi = self.material.constitutive_law(F, M=self.mf, rho=self.rho(), phi0=self.phi())
         Psic = Psi*dx + L*(J-m/rho-Constant(1))*dx
 
         for boundary, condition in neumann_bcs.items():
@@ -195,7 +203,7 @@ class PoroelasticProblem(object):
         I = Identity(d)
         F = variable(I + ufl_grad(dU))
         J = variable(det(F))
-        Psi = self.material.constitutive_law(F, M=self.mf, rho=self.rho())
+        Psi = self.material.constitutive_law(F, M=self.mf, rho=self.rho(), phi0=self.phi())
         phi = (self.mf + rho*phi0)
         Jphi = variable(J*phi)
         p = diff(Psi, Jphi) - L
@@ -231,8 +239,6 @@ class PoroelasticProblem(object):
     def move_mesh(self):
         dU, L = self.Us.split()
         ALE.move(self.mesh, project(dU, VectorFunctionSpace(self.mesh, 'P', 1)))
-        # Adjust source term to new spatial configuration
-        self.qi = self.qi * inner(dU, dU)
 
 
     def choose_solver(self, prob):
@@ -265,6 +271,8 @@ class PoroelasticProblem(object):
 
             for con in self.tconditions:
                 con.t = t
+
+            self.qi.t = t
 
             iter = 0
             eps = 1
@@ -325,10 +333,14 @@ class PoroelasticProblem(object):
         # return Expression("A * exp( - ( 0.5*pow(x[0]-0.5, 2) + 0.5*pow(x[1]-0.5, 2) ) )", A=1e-3, degree=1)
 
     def q_in(self):
-        if isinstance(self.params.params['qi'], str):
-            return Expression(self.params.params['qi'], degree=1)
+        qin = self.params.params['qi']
+        if isinstance(qin, str):
+            if "t" in qin:
+                return Expression(qin, t=0.0, degree=1)
+            else:
+                return Expression(qin, degree=1)
         else:
-            return Constant(self.params.params['qi'])
+            return Constant(qin)
 
     def K(self):
         # if self.N == 1:

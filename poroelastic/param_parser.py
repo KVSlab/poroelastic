@@ -14,7 +14,7 @@ class ParamParser(object):
         except Exception as e:
             print(e)
             import sys; sys.exit(1)
-        self.sim, self.units, self.params = self.get_params()
+        self.sim, self.units, self.params, self.material = self.get_params()
 
 
     def get_params(self):
@@ -35,7 +35,10 @@ class ParamParser(object):
         # Read parameters
         params = ParamParser.get_param_section(config, units)
 
-        return sim, units, params
+        # Read material
+        material = ParamParser.get_material_section(config, units)
+
+        return sim, units, params, material
 
 
     @staticmethod
@@ -88,5 +91,21 @@ class ParamParser(object):
 
             else:
                 value = eval(value, units)
+            section_dict[key] = value
+        return section_dict
+
+
+    @staticmethod
+    def get_material_section(config, units):
+        """
+        Get config file options from section containing strings.
+
+        :param config: ConfigParser object.
+        """
+        section = 'Material'
+        options = config.items(section)
+        section_dict = {}
+        for key, value in options:
+            value = eval(value, units)
             section_dict[key] = value
         return section_dict
