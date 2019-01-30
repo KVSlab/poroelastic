@@ -62,9 +62,9 @@ class PoroelasticProblem(object):
         # Material
         if self.params.material["material"] == "isotropic exponential form":
             self.material = IsotropicExponentialFormMaterial(self.params.material)
-        elif self.params.material["material"] == "linear poroelastic"
+        elif self.params.material["material"] == "linear poroelastic":
             self.material = LinearPoroelasticMaterial(self.params.material)
-        elif self.params.material["material"] == "Neo-Hookean"
+        elif self.params.material["material"] == "Neo-Hookean":
             self.material = NeoHookeanMaterial(self.params.material)
 
         # Set variational forms
