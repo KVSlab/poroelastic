@@ -137,7 +137,7 @@ class PoroelasticProblem(object):
         Psic = Psi*dx + L*(J-m/rho-Constant(1))*dx
 
         for boundary, condition in neumann_bcs.items():
-            Psic -= dot(condition*n, dU)*self.ds(boundary)
+            Psic += dot(condition*n, dU)*self.ds(boundary)
 
         Form = derivative(Psic, U, V)
         dF = derivative(Form, U, TrialFunction(self.FS_S))
@@ -193,7 +193,7 @@ class PoroelasticProblem(object):
         return Form, dF
 
 
-    def fluid_solid_coupling(self):
+    def fluid_solid_coupling(self, t):
         dU, L = self.Us.split(True)
         p = self.p
         q = TestFunction(self.FS_F)
@@ -280,7 +280,7 @@ class PoroelasticProblem(object):
             while eps > tol and iter < maxiter:
                 iter += 1
                 ssol.solve()
-                self.fluid_solid_coupling()
+                self.fluid_solid_coupling(t)
                 msol.solve()
                 diff = self.mf.vector().get_local() - mf_.vector().get_local()
                 eps = np.linalg.norm(diff, ord=np.Inf)
