@@ -2,6 +2,7 @@ __author__ = "Alexandra Diem <alexandra@simula.no>"
 
 from scipy.interpolate import interp1d
 from itertools import chain
+import sys
 
 import dolfin as df
 
@@ -45,6 +46,7 @@ def mark_inlet(markers):
 
 def print_time(t):
     print("t = {0: >#016.2f}".format(t), end='\r')
+    sys.stdout.flush()
 
 
 def periodic(t, T):

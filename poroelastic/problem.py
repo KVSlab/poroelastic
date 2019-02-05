@@ -33,11 +33,11 @@ class PoroelasticProblem(object):
         else:
             self.ds = ds()
 
-        if territories != None:
-            self.dx = dx(subdomain_data=territories)
-            self.territories = set(territories.array())
+        if territories == None:
+            self.territories = MeshFunction("size_t", mesh, mesh.topology().dim())
+            self.territories.set_all(0)
         else:
-            self.dx = dx()
+            self.territories = territories
 
         # Create function spaces
         self.FS_S, self.FS_F, self.FS_V = self.create_function_spaces()
@@ -79,7 +79,7 @@ class PoroelasticProblem(object):
         P2 = FiniteElement('P', self.mesh.ufl_cell(), 2)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
         FS_S = FunctionSpace(self.mesh, TH)
-        FS_F = FunctionSpace(self.mesh, P2)
+        FS_F = FunctionSpace(self.mesh, P1)
         FS_V = FunctionSpace(self.mesh, V1)
         return FS_S, FS_F, FS_V
 
@@ -182,11 +182,12 @@ class PoroelasticProblem(object):
         A = variable(rho * J * inv(F) * self.K() * inv(F.T))
         Form = k*(m - m_n)*vm*dx + dot(grad(M), k*(dU-dU_n))*vm*dx -\
                 inner(-A*grad(self.p), grad(vm))*dx + rho*si*vm*dx
-        # if self.markers == {}:
-        Form += -self.rho()*self.qi*vm*dx + self.rho()*q_out*vm*dx
-        # for i in self.territories:
-        #     try: Form += -self.rho()*qi*vm*self.dx()
-        #     except: pass
+
+        # Add inflow terms
+        Form += -self.rho()*self.qi*vm*dx
+
+        # Add outflow term
+        Form += self.rho()*q_out*vm*dx
 
         dF = derivative(Form, m, TrialFunction(self.FS_F))
 
@@ -237,7 +238,7 @@ class PoroelasticProblem(object):
 
 
     def move_mesh(self):
-        dU, L = self.Us.split()
+        dU, L = self.Us.split(True)
         ALE.move(self.mesh, project(dU, VectorFunctionSpace(self.mesh, 'P', 1)))
 
 
@@ -311,8 +312,8 @@ class PoroelasticProblem(object):
     def iterative_solver(self, prob):
         TOL = self.TOL()
         sol = NonlinearVariationalSolver(prob)
-        sol.parameters['newton_solver']['linear_solver'] = 'gmres'
-        sol.parameters['newton_solver']['preconditioner'] = 'hypre_euclid'
+        sol.parameters['newton_solver']['linear_solver'] = 'minres'
+        sol.parameters['newton_solver']['preconditioner'] = 'hypre_amg'
         sol.parameters['newton_solver']['absolute_tolerance'] = TOL
         sol.parameters['newton_solver']['relative_tolerance'] = TOL
         sol.parameters['newton_solver']['maximum_iterations'] = 1000
@@ -330,17 +331,23 @@ class PoroelasticProblem(object):
             return Expression(self.params.params['qo'], degree=1)
         else:
             return Constant(self.params.params['qo'])
-        # return Expression("A * exp( - ( 0.5*pow(x[0]-0.5, 2) + 0.5*pow(x[1]-0.5, 2) ) )", A=1e-3, degree=1)
 
     def q_in(self):
+        class Qin(Expression):
+            def __init__(self, territories, qin, **kwargs):
+                self.territories = territories
+                self.qin = qin
+
+            def eval_cell(self, values, x, cell):
+                t = self.territories[cell.index]
+                values[0] = self.qin[t] * (1 - exp(-pow(x[1], 2)/(2*pow(1.5, 2)))/(sqrt(2*pi)*1.5) * exp(-pow(x[2], 2)/(2*pow(1.5, 2)))/(sqrt(2*pi)*1.5))
+
         qin = self.params.params['qi']
-        if isinstance(qin, str):
-            if "t" in qin:
-                return Expression(qin, t=0.0, degree=1)
-            else:
-                return Expression(qin, degree=1)
-        else:
-            return Constant(qin)
+        if not isinstance(qin, list):
+            qin = [qin]
+
+        q = Qin(self.territories, qin, degree=0)
+        return q
 
     def K(self):
         # if self.N == 1:
