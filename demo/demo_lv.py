@@ -40,9 +40,9 @@ zero = df.Constant(0.0)
 dt = params.params["dt"]
 
 pprob = poro.PoroelasticProblem(mesh, params, boundaries=boundaries, markers=markers, territories=territories)
-pprob.add_solid_dirichlet_condition(vzero, boundaries, markers["base"])
-pprob.add_solid_dirichlet_condition(vzero, "on_boundary and x[0] > 4.66")
-# pprob.add_solid_dirichlet_condition(vzero, "sqrt(x[1]*x[1] + x[2]*x[2]) > 2.5 and x[0] < 0.0", method="pointwise")
+pprob.add_solid_dirichlet_condition(zero, boundaries, markers["base"], n=0)
+pprob.add_solid_dirichlet_condition(zero, "on_boundary and x[0] > 4.66", n=1)
+pprob.add_solid_dirichlet_condition(zero, "on_boundary and x[0] > 4.66", n=2)
 
 conditions = {markers["endocardium"]: inflate}
 pprob.add_solid_neumann_conditions(conditions)
