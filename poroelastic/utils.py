@@ -45,7 +45,7 @@ def mark_inlet(markers):
 
 
 def print_time(t):
-    print("t = {0: >#016.2f}".format(t), end='\r')
+    print("t = {0: >#016.5f}".format(t), end='\r')
     sys.stdout.flush()
 
 
