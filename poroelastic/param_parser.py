@@ -20,7 +20,6 @@ class ParamParser(object):
             print(e)
             import sys; sys.exit(1)
         self.sim, self.units, self.params, self.material = self.get_params()
-        print(self.sim)
 
 
     def get_params(self):
