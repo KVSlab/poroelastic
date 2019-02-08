@@ -1,20 +1,26 @@
 __author__ = "Alexandra Diem <alexandra@simula.no>"
 
 from configparser import SafeConfigParser
+import argparse
 
 
 class ParamParser(object):
 
-    def __init__(self, fparams):
-        self.fparams = fparams
+    def __init__(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--cfg")
+        args = parser.parse_args()
+        self.fparams = args.cfg
+
         try:
-            f = open(fparams, 'r')
+            f = open(self.fparams, 'r')
             data = f.read()
             f.close()
         except Exception as e:
             print(e)
             import sys; sys.exit(1)
         self.sim, self.units, self.params, self.material = self.get_params()
+        print(self.sim)
 
 
     def get_params(self):

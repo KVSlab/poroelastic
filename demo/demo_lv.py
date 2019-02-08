@@ -1,8 +1,5 @@
 __author__ = "Alexandra Diem <alexandra@simula.no>"
 
-import sys
-sys.path.append("../poroelastic")
-
 import poroelastic as poro
 import dolfin as df
 import matplotlib.pyplot as plt
@@ -15,7 +12,7 @@ mesh = df.Mesh()
 mf.read(mesh)
 mf.close()
 
-params = poro.ParamParser("../data/demo_lv.cfg")
+params = poro.ParamParser()
 
 markers = {"base": 1, "epicardium": 2, "endocardium": 3}
 boundaries = df.MeshFunction("size_t", mesh, mesh.topology().dim()-1)
@@ -40,7 +37,7 @@ zero = df.Constant(0.0)
 dt = params.params["dt"]
 
 pprob = poro.PoroelasticProblem(mesh, params, boundaries=boundaries, markers=markers, territories=territories)
-pprob.add_solid_dirichlet_condition(zero, boundaries, markers["base"], n=0)
+pprob.add_solid_dirichlet_condition(vzero, boundaries, markers["base"])
 pprob.add_solid_dirichlet_condition(zero, "on_boundary and x[0] > 4.66", n=1)
 pprob.add_solid_dirichlet_condition(zero, "on_boundary and x[0] > 4.66", n=2)
 
