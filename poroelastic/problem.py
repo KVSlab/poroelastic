@@ -300,6 +300,9 @@ class PoroelasticProblem(object):
 
             t += dt
 
+        # Add a last print so that next output won't overwrite my time print statements
+        print()
+
 
     def direct_solver(self, prob):
         sol = NonlinearVariationalSolver(prob)
