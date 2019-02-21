@@ -111,7 +111,7 @@ class PoroelasticProblem(object):
     def set_solid_variational_form(self, neumann_bcs):
 
         U = self.Us
-        dU, L = split(self.Us)
+        dU, L = split(U)
         V = TestFunction(self.FS_S)
         v, w = split(V)
 

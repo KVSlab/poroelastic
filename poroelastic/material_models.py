@@ -1,4 +1,5 @@
 from dolfin import *
+import numpy as np
 
 set_log_level(30)
 
@@ -78,13 +79,12 @@ class LinearPoroelasticMaterial(object):
         J1 = I1 * I3**(-1/3)
         J2 = I2 * I3**(-2/3)
 
-        if J == 1:
-            f = 1
-        else:
-            f = 2*(J - 1 - ln(J))/(J-1)**2
+        f = 2*(J - 1 - ln(J))/(J-1)**2
+        if np.isnan(assemble(f*dx)):
+            f = 1.0
 
-        Whyp = self.kappa1 * (J1-3) + self.kappa2 * (J2-3) + self.K * (J-1) + self.K*ln(J)
-        Psi = Whyp - self.M*self.b*(m/rho)*(J-1)*f + 0.5*self.M*(m/rho)**2*f + self.kappa0 * ln(m/rho + phi0)
+        Whyp = self.kappa1*(J1-3) + self.kappa2*(J2-3) + self.K*(J-1) - self.K*ln(J)
+        Psi = Whyp - self.M*self.b*(m/rho)*(J-1)*f + 0.5*self.M*(m/rho)**2*f - self.kappa0*ln(m/rho + phi0)
         return Psi
 
 
