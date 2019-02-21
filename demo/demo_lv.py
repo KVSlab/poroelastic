@@ -7,16 +7,16 @@ import matplotlib.pyplot as plt
 
 comm = df.mpi_comm_world()
 
-mf = df.XDMFFile(comm, "../data/mesh_highres/LV.xdmf")
+mf = df.XDMFFile(comm, "./data/lv_mesh/LVH.xdmf")
 mesh = df.Mesh()
 mf.read(mesh)
 mf.close()
 
 params = poro.ParamParser()
 
-markers = {"base": 1, "epicardium": 2, "endocardium": 3}
+markers = {"base": 10, "epicardium": 40, "endocardium": 30}
 boundaries = df.MeshFunction("size_t", mesh, mesh.topology().dim()-1)
-bf = df.XDMFFile(comm, "../data/mesh_highres/LV_mf.xdmf")
+bf = df.XDMFFile(comm, "./data/lv_mesh/LVH_mf.xdmf")
 bf.read(boundaries)
 bf.close()
 
@@ -31,15 +31,13 @@ t1 = T1()
 t1.mark(territories, 1)
 
 # Define Dirichlet boundary conditions
-inflate = df.Constant(1e-2)
+inflate = df.Constant(1e-3)
 vzero = df.Constant((0.0, 0.0, 0.0))
 zero = df.Constant(0.0)
 dt = params.params["dt"]
 
 pprob = poro.PoroelasticProblem(mesh, params, boundaries=boundaries, markers=markers, territories=territories)
 pprob.add_solid_dirichlet_condition(vzero, boundaries, markers["base"])
-pprob.add_solid_dirichlet_condition(zero, "on_boundary and x[0] > 4.66", n=1)
-pprob.add_solid_dirichlet_condition(zero, "on_boundary and x[0] > 4.66", n=2)
 
 conditions = {markers["endocardium"]: inflate}
 pprob.add_solid_neumann_conditions(conditions)
@@ -50,10 +48,10 @@ def set_xdmf_parameters(f):
     f.parameters['rewrite_function_mesh'] = False
 
 # Files for output
-f1 = df.XDMFFile(comm, '../data/demo_lv/uf.xdmf')
-f2 = df.XDMFFile(comm, '../data/demo_lv/mf.xdmf')
-f3 = df.XDMFFile(comm, '../data/demo_lv/p.xdmf')
-f4 = df.XDMFFile(comm, '../data/demo_lv/du.xdmf')
+f1 = df.XDMFFile(comm, './data/demo_lv/uf.xdmf')
+f2 = df.XDMFFile(comm, './data/demo_lv/mf.xdmf')
+f3 = df.XDMFFile(comm, './data/demo_lv/p.xdmf')
+f4 = df.XDMFFile(comm, './data/demo_lv/du.xdmf')
 
 set_xdmf_parameters(f1)
 set_xdmf_parameters(f2)
@@ -61,10 +59,10 @@ set_xdmf_parameters(f3)
 set_xdmf_parameters(f4)
 
 def near(a, b):
-    tol = 1e-10
+    tol = 1e-8
     return True if b-tol < a < b+tol else False
 
-dt_save = 0.05
+dt_save = 0.01
 t_save = 0.0
 for Mf, Uf, p, Us, t in pprob.solve():
 
