@@ -53,14 +53,15 @@ def set_xdmf_parameters(f):
     f.parameters['rewrite_function_mesh'] = False
 
 # Files for output
-f1 = df.XDMFFile(comm, '../data/demo_unitsquare/uf.xdmf')
+N = int(params.params['N'])
+f1 = [df.XDMFFile(comm, '../data/demo_unitsquare/uf{}.xdmf'.format(i)) for i in range(N)]
 f2 = df.XDMFFile(comm, '../data/demo_unitsquare/mf.xdmf')
-f3 = df.XDMFFile(comm, '../data/demo_unitsquare/p.xdmf')
+f3 = [df.XDMFFile(comm, '../data/demo_unitsquare/p{}.xdmf'.format(i)) for i in range(N)]
 f4 = df.XDMFFile(comm, '../data/demo_unitsquare/du.xdmf')
 
-set_xdmf_parameters(f1)
+[set_xdmf_parameters(f1[i]) for i in range(N)]
 set_xdmf_parameters(f2)
-set_xdmf_parameters(f3)
+[set_xdmf_parameters(f3[i]) for i in range(N)]
 set_xdmf_parameters(f4)
 
 
@@ -68,12 +69,12 @@ for Mf, Uf, p, Us, t in pprob.solve():
 
     dU, L = Us.split(True)
 
-    poro.write_file(f1, Uf, 'uf', t)
+    [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
     poro.write_file(f2, Mf, 'mf', t)
-    poro.write_file(f3, p, 'p', t)
+    [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, dU, 'du', t)
 
-f1.close()
+[f1[i].close() for i in range(N)]
 f2.close()
-f3.close()
+[f3[i].close() for i in range(N)]
 f4.close()
