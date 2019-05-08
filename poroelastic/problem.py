@@ -95,7 +95,7 @@ class PoroelasticProblem(object):
         else:
             self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
                                 *args, **kwargs))
-        if 'time' in kwargs.keys() and kargs['time']:
+        if 'time' in kwargs.keys() and kwargs['time']:
             self.tconditions.append(condition)
 
 
@@ -117,6 +117,7 @@ class PoroelasticProblem(object):
 
         # parameters
         rho = Constant(self.params.params['rho'])
+        phi0 = Constant(self.params.params['phi'])
 
         # fluid Solution
         m = self.mf
@@ -133,7 +134,8 @@ class PoroelasticProblem(object):
         I1 = variable(J**(-2/3) * tr(C))
         I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
 
-        Psi = self.material.constitutive_law(F, M=self.mf, rho=self.rho(), phi0=self.phi())
+        Psi = self.material.constitutive_law(J=J, C=C, I1=I1, I2=I2,
+                M=self.mf, rho=rho, phi0=phi0)
         Psic = Psi*dx + L*(J-m/rho-Constant(1))*dx
 
         for boundary, condition in neumann_bcs.items():
@@ -204,7 +206,11 @@ class PoroelasticProblem(object):
         I = Identity(d)
         F = variable(I + ufl_grad(dU))
         J = variable(det(F))
-        Psi = self.material.constitutive_law(F, M=self.mf, rho=self.rho(), phi0=self.phi())
+        C = variable(F.T*F)
+        I1 = variable(J**(-2/3) * tr(C))
+        I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
+        Psi = self.material.constitutive_law(J=J, C=C, I1=I1, I2=I2,
+                M=self.mf, rho=rho, phi0=phi0)
         phi = (self.mf + rho*phi0)
         Jphi = variable(J*phi)
         p = diff(Psi, Jphi) - L
@@ -335,22 +341,28 @@ class PoroelasticProblem(object):
         else:
             return Constant(self.params.params['qo'])
 
+    # def q_in(self):
+    #     class Qin(Expression):
+    #         def __init__(self, territories, qin, **kwargs):
+    #             self.territories = territories
+    #             self.qin = qin
+    #
+    #         def eval_cell(self, values, x, cell):
+    #             t = self.territories[cell.index]
+    #             values[0] = self.qin[t] * (1 - exp(-pow(x[1], 2)/(2*pow(1.5, 2)))/(sqrt(2*pi)*1.5) * exp(-pow(x[2], 2)/(2*pow(1.5, 2)))/(sqrt(2*pi)*1.5))
+    #
+    #     qin = self.params.params['qi']
+    #     if not isinstance(qin, list):
+    #         qin = [qin]
+    #
+    #     q = Qin(self.territories, qin, degree=0)
+    #     return q
+
     def q_in(self):
-        class Qin(Expression):
-            def __init__(self, territories, qin, **kwargs):
-                self.territories = territories
-                self.qin = qin
-
-            def eval_cell(self, values, x, cell):
-                t = self.territories[cell.index]
-                values[0] = self.qin[t] * (1 - exp(-pow(x[1], 2)/(2*pow(1.5, 2)))/(sqrt(2*pi)*1.5) * exp(-pow(x[2], 2)/(2*pow(1.5, 2)))/(sqrt(2*pi)*1.5))
-
-        qin = self.params.params['qi']
-        if not isinstance(qin, list):
-            qin = [qin]
-
-        q = Qin(self.territories, qin, degree=0)
-        return q
+        if isinstance(self.params.params['qi'], str):
+            return Expression(self.params.params['qi'], degree=1)
+        else:
+            return Constant(self.params.params['qi'])
 
     def K(self):
         # if self.N == 1:

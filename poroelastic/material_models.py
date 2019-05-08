@@ -26,16 +26,14 @@ class IsotropicExponentialFormMaterial(object):
         self.Qi3 = Constant(param["Qi3"])
 
 
-    def constitutive_law(self, F, **kwargs):
+    def constitutive_law(self, **kwargs):
         # kwargs
+        J = kwargs["J"]
+        C = kwargs["C"]
+        I1 = kwargs["I1"]
+        I2 = kwargs["I2"]
         M = kwargs["M"]
         rho = kwargs["rho"]
-
-        # kinematic variables
-        J = variable(det(F))
-        C = variable(F.T*F)
-        I1 = variable(J**(-2/3) * tr(C))
-        I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
 
         # constitutive law
         Psi = self.a * (exp(self.D1 * (I1 * (1 + self.Qi1*(M/rho)) - 3)\
