@@ -11,7 +11,7 @@ comm = df.mpi_comm_world()
 
 nx = 100
 mesh = df.UnitSquareMesh(nx, nx)
-params = poro.ParamParser("../data/demo_unitcube.cfg")
+params = poro.ParamParser()
 
 pprob = poro.PoroelasticProblem(mesh, params)
 
@@ -40,10 +40,12 @@ bottom.mark(boundaries, 3)
 # Define Dirichlet boundary conditions
 zero = df.Constant(0.0)
 vzero = df.Constant((0.0, 0.0))
+squeeze = df.Constant(-1e-2)
 dt = params.params["dt"]
 
 pprob.add_solid_dirichlet_condition(zero, boundaries, 1, n=0)
 pprob.add_solid_dirichlet_condition(zero, boundaries, 3, n=1)
+pprob.add_solid_dirichlet_condition(squeeze, boundaries, 2, n=1)
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
