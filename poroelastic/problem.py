@@ -125,18 +125,18 @@ class PoroelasticProblem(object):
         # Kinematics
         n = FacetNormal(self.mesh)
         d = dU.geometric_dimension()
-        I = Identity(d)
-        F = variable(I + ufl_grad(dU))
-        J = variable(det(F))
-        C = variable(F.T*F)
+        self.I = Identity(d)
+        self.F = variable(self.I + ufl_grad(dU))
+        self.J = variable(det(self.F))
+        self.C = variable(self.F.T*self.F)
 
         # modified Cauchy-Green invariants
-        I1 = variable(J**(-2/3) * tr(C))
-        I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
+        I1 = variable(self.J**(-2/3) * tr(self.C))
+        I2 = variable(self.J**(-4/3) * 0.5 * (tr(self.C)**2 - tr(self.C*self.C)))
 
-        Psi = self.material.constitutive_law(J=J, C=C, I1=I1, I2=I2,
-                M=self.mf, rho=rho, phi0=phi0)
-        Psic = Psi*dx + L*(J-m/rho-Constant(1))*dx
+        self.Psi = self.material.constitutive_law(J=self.J, C=self.C, I1=I1,
+                I2=I2, M=self.mf, rho=rho, phi0=phi0)
+        Psic = self.Psi*dx + L*(self.J-m/rho-Constant(1))*dx
 
         for boundary, condition in neumann_bcs.items():
             Psic += dot(condition*n, dU)*self.ds(boundary)
@@ -163,12 +163,6 @@ class PoroelasticProblem(object):
         k = Constant(1/self.dt())
         th, th_ = self.theta()
 
-        # Kinematics from solid
-        d = dU.geometric_dimension()
-        I = Identity(d)
-        F = variable(I + ufl_grad(dU))
-        J = variable(det(F))
-
         # VK = TensorFunctionSpace(self.mesh, "P", 1)
         # if d == 2:
         #     exp = Expression((('0.5', '0.0'),('0.0', '1.0')), degree=1)
@@ -181,7 +175,7 @@ class PoroelasticProblem(object):
         M = th*m + th_*m_n
 
         # Fluid variational form
-        A = variable(rho * J * inv(F) * self.K() * inv(F.T))
+        A = variable(rho * self.J * inv(self.F) * self.K() * inv(self.F.T))
         Form = k*(m - m_n)*vm*dx + dot(grad(M), k*(dU-dU_n))*vm*dx -\
                 inner(-A*grad(self.p), grad(vm))*dx + rho*si*vm*dx
 
@@ -202,19 +196,10 @@ class PoroelasticProblem(object):
         q = TestFunction(self.FS_F)
         rho = self.rho()
         phi0 = self.phi()
-        d = dU.geometric_dimension()
-        I = Identity(d)
-        F = variable(I + ufl_grad(dU))
-        J = variable(det(F))
-        C = variable(F.T*F)
-        I1 = variable(J**(-2/3) * tr(C))
-        I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
-        Psi = self.material.constitutive_law(J=J, C=C, I1=I1, I2=I2,
-                M=self.mf, rho=rho, phi0=phi0)
         phi = (self.mf + rho*phi0)
-        Jphi = variable(J*phi)
-        p = diff(Psi, Jphi) - L
-        self.p = project(p, self.FS_F)
+        p = project(((tr(diff(self.Psi, self.F) * self.F.T))/phi - L),
+                                            self.FS_F)
+        self.p.assign(p)
 
 
     def calculate_flow_vector(self):
@@ -227,16 +212,10 @@ class PoroelasticProblem(object):
         rho = Constant(self.rho())
         phi0 = self.phi()
         k = Constant(1/self.dt())
-
-        # Kinematics from solid
-        d = dU.geometric_dimension()
-        I = Identity(d)
-        F = variable(I + ufl_grad(dU))
-        J = variable(det(F))
         phi = (self.mf + rho*phi0)
 
-        a = (1/rho)*inner(F*m, mv)*dx
-        L = inner(-J*self.K()*inv(F.T)*grad(self.p), mv)*dx
+        a = (1/rho)*inner(self.F*m, mv)*dx
+        L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p), mv)*dx
 
         solve(a == L, self.Uf, solver_parameters={"linear_solver": "minres",
                                                 "preconditioner": "hypre_amg"})
