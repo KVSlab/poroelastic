@@ -55,6 +55,10 @@ class ParamParser(object):
             self.config.write(configfile)
 
 
+    def add_data(self, section, key, value):
+        self.config.set(section, key, value)
+
+
     @staticmethod
     def get_sim_section(config):
         """
