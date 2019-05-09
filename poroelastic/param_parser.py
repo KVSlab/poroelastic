@@ -1,6 +1,6 @@
 __author__ = "Alexandra Diem <alexandra@simula.no>"
 
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 import argparse
 
 
@@ -10,16 +10,21 @@ class ParamParser(object):
         parser = argparse.ArgumentParser()
         parser.add_argument("--cfg")
         args = parser.parse_args()
-        self.fparams = args.cfg
+        cfgfile = args.cfg
 
         try:
-            f = open(self.fparams, 'r')
+            f = open(cfgfile, 'r')
             data = f.read()
             f.close()
         except Exception as e:
             print(e)
             import sys; sys.exit(1)
-        self.sim, self.units, self.params, self.material = self.get_params()
+
+        self.config = ConfigParser()
+        self.config.optionxform = str
+        self.config.read(cfgfile)
+
+        self.p = self.get_params()
 
 
     def get_params(self):
@@ -27,23 +32,31 @@ class ParamParser(object):
         Reads config file provided in self.fparams.
         Parameters are stored as dictionary params['name'] = value
         """
-        config = SafeConfigParser()
-        config.optionxform = str
-        config.read(self.fparams)
+        p = {}
 
         # Read simulation tags section
-        sim = ParamParser.get_sim_section(config)
+        p['Simulation'] = ParamParser.get_sim_section(self.config)
 
         # Read units tags
-        units = ParamParser.get_units_section(config)
+        p['Units'] = ParamParser.get_units_section(self.config)
 
         # Read parameters
-        params = ParamParser.get_param_section(config, units)
+        p['Parameter'] = ParamParser.get_param_section(self.config, p['Units'])
 
         # Read material
-        material = ParamParser.get_material_section(config, units)
+        p['Material'] = ParamParser.get_material_section(
+                                                        self.config, p['Units'])
 
-        return sim, units, params, material
+        return p
+
+
+    def write_config(self, cfgfile):
+        with open(cfgfile, 'w') as configfile:
+            self.config.write(configfile)
+
+
+    def add_data(self, section, key, value):
+        self.config.set(section, key, value)
 
 
     @staticmethod
