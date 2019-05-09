@@ -56,6 +56,10 @@ class PoroelasticProblem(object):
         self.Uf = [Function(self.FS_V) for i in range(self.N)]
         self.p = [Function(self.FS_F) for i in range(self.N)]
 
+        rho = self.rho()
+        phi0 = self.phi()
+        self.phif = variable(self.mf/rho + phi0)
+
         self.sbcs = []
         self.fbcs = []
         self.tconditions = []
@@ -141,8 +145,8 @@ class PoroelasticProblem(object):
         I2 = variable(self.J**(-4/3) * 0.5 * (tr(self.C)**2 - tr(self.C*self.C)))
 
         self.Psi = self.material.constitutive_law(J=self.J, C=self.C, I1=I1,
-                I2=I2, M=self.mf, rho=rho, phi0=phi0)
-        Psic = self.Psi*dx + L*(self.J-m/rho-Constant(1))*dx
+                I2=I2, M=self.mf, rho=rho)
+        Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
 
         for boundary, condition in neumann_bcs.items():
             Psic += dot(condition*n, dU)*self.ds(boundary)
@@ -187,10 +191,10 @@ class PoroelasticProblem(object):
                     inner(-A*grad(self.p[0]), grad(vm))*dx + rho*si*vm*dx
 
             # Add inflow terms
-            Form += -self.rho()*self.qi*vm*dx
+            Form += -rho*self.qi*vm*dx
 
             # Add outflow term
-            Form += self.rho()*q_out*vm*dx
+            Form += rho*q_out*vm*dx
 
         else:
             Form = 0
@@ -204,11 +208,8 @@ class PoroelasticProblem(object):
         dU, L = self.Us.split(True)
         p = self.p
         q = TestFunction(self.FS_F)
-        rho = self.rho()
-        phi0 = self.phi()
-        phi = (self.mf + rho*phi0)
         for i in range(self.N):
-            p = project(((tr(diff(self.Psi, self.F) * self.F.T))/phi - L),
+            p = project(((tr(diff(self.Psi, self.F) * self.F.T))/self.phif - L),
                                             self.FS_F)
             self.p[i].assign(p)
 
@@ -221,9 +222,6 @@ class PoroelasticProblem(object):
 
         # Parameters
         rho = Constant(self.rho())
-        phi0 = self.phi()
-        k = Constant(1/self.dt())
-        phi = (self.mf + rho*phi0)
 
         for i in range(self.N):
             a = (1/rho)*inner(self.F*m, mv)*dx
