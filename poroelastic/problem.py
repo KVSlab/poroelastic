@@ -27,7 +27,7 @@ class PoroelasticProblem(object):
         self.mesh = mesh
         self.params = params
         self.markers = markers
-        self.N = int(params.params['N'])
+        self.N = int(self.params['Parameter']['N'])
 
         if boundaries != None:
             self.ds = ds(subdomain_data=boundaries)
@@ -65,12 +65,12 @@ class PoroelasticProblem(object):
         self.tconditions = []
 
         # Material
-        if self.params.material["material"] == "isotropic exponential form":
-            self.material = IsotropicExponentialFormMaterial(self.params.material)
-        elif self.params.material["material"] == "linear poroelastic":
-            self.material = LinearPoroelasticMaterial(self.params.material)
-        elif self.params.material["material"] == "Neo-Hookean":
-            self.material = NeoHookeanMaterial(self.params.material)
+        if self.params['Material']["material"] == "isotropic exponential form":
+            self.material = IsotropicExponentialFormMaterial(self.params['Material'])
+        elif self.params['Material']["material"] == "linear poroelastic":
+            self.material = LinearPoroelasticMaterial(self.params['Material'])
+        elif self.params['Material']["material"] == "Neo-Hookean":
+            self.material = NeoHookeanMaterial(self.params['Material'])
 
         # Set variational forms
         self.SForm, self.dSForm = self.set_solid_variational_form({})
@@ -115,7 +115,7 @@ class PoroelasticProblem(object):
 
 
     def sum_fluid_mass(self):
-        return self.mf/self.params.params['rho']
+        return self.mf/self.params['Parameter']['rho']
 
 
     def set_solid_variational_form(self, neumann_bcs):
@@ -126,8 +126,8 @@ class PoroelasticProblem(object):
         v, w = split(V)
 
         # parameters
-        rho = Constant(self.params.params['rho'])
-        phi0 = Constant(self.params.params['phi'])
+        rho = Constant(self.params['Parameter']['rho'])
+        phi0 = Constant(self.params['Parameter']['phi'])
 
         # fluid Solution
         m = self.mf
@@ -238,7 +238,7 @@ class PoroelasticProblem(object):
 
 
     def choose_solver(self, prob):
-        if self.params.sim['solver'] == 'direct':
+        if self.params['Simulation']['solver'] == 'direct':
             return self.direct_solver(prob)
         else:
             return self.iterative_solver(prob)
@@ -261,7 +261,7 @@ class PoroelasticProblem(object):
                                             J=self.dSForm)
         ssol = self.choose_solver(sprob)
 
-        while t < self.params.params['tf']:
+        while t < self.params['Parameter']['tf']:
 
             if mpiRank == 0: utils.print_time(t)
 
@@ -319,16 +319,16 @@ class PoroelasticProblem(object):
 
 
     def rho(self):
-        return Constant(self.params.params['rho'])
+        return Constant(self.params['Parameter']['rho'])
 
     def phi(self):
-        return Constant(self.params.params['phi'])
+        return Constant(self.params['Parameter']['phi'])
 
     def q_out(self):
-        if isinstance(self.params.params['qo'], str):
-            return Expression(self.params.params['qo'], degree=1)
+        if isinstance(self.params['Parameter']['qo'], str):
+            return Expression(self.params['Parameter']['qo'], degree=1)
         else:
-            return Constant(self.params.params['qo'])
+            return Constant(self.params['Parameter']['qo'])
 
     # def q_in(self):
     #     class Qin(Expression):
@@ -348,16 +348,16 @@ class PoroelasticProblem(object):
     #     return q
 
     def q_in(self):
-        if isinstance(self.params.params['qi'], str):
-            return Expression(self.params.params['qi'], degree=1)
+        if isinstance(self.params['Parameter']['qi'], str):
+            return Expression(self.params['Parameter']['qi'], degree=1)
         else:
-            return Constant(self.params.params['qi'])
+            return Constant(self.params['Parameter']['qi'])
 
     def K(self):
         # if self.N == 1:
         d = self.mf.geometric_dimension()
         I = Identity(d)
-        K = Constant(self.params.params['K'])
+        K = Constant(self.params['Parameter']['K'])
         if self.fibers:
             return K*I
         else:
@@ -372,11 +372,11 @@ class PoroelasticProblem(object):
         #         return [k*I for k in K]
 
     def dt(self):
-        return self.params.params['dt']
+        return self.params['Parameter']['dt']
 
     def theta(self):
-        theta = self.params.params['theta']
+        theta = self.params['Parameter']['theta']
         return Constant(theta), Constant(1-theta)
 
     def TOL(self):
-        return self.params.params['TOL']
+        return self.params['Parameter']['TOL']
