@@ -30,14 +30,15 @@ class IsotropicExponentialFormMaterial(object):
         # kwargs
         J = kwargs["J"]
         C = kwargs["C"]
-        I1 = kwargs["I1"]
-        I2 = kwargs["I2"]
         M = kwargs["M"]
         rho = kwargs["rho"]
 
+        I1 = variable(J**(-2/3) * tr(C))
+        I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
+
         # constitutive law
-        Psi = self.a * (exp(self.D1 * (I1 * (1 + self.Qi1*(M/rho)) - 3)\
-            + self.D2 * (I2 *(1 + self.Qi2*(M/rho)) - 3)\
+        Psi = self.a * (exp(self.D1 * (I1 * (1 + self.Qi1*M/rho) - 3)\
+            + self.D2 * (I2 *(1 + self.Qi2*M/rho) - 3)\
             + self.D3 * ((J-1)**2 + self.Qi3*(M/rho)**2)) - 1)
         return Psi
 
@@ -62,15 +63,15 @@ class LinearPoroelasticMaterial(object):
         self.b = Constant(param["b"])
 
 
-    def constitutive_law(self, F, **kwargs):
+    def constitutive_law(self, **kwargs):
         # kwargs
-        m = kwargs["M"]
+        M = kwargs["M"]
         rho = kwargs["rho"]
-        phi0 = kwargs["phi0"]
+        phi0 = kwargs["phi"]
 
         # kinematic variables
-        J = variable(det(F))
-        C = variable(F.T*F)
+        J = kwargs["J"]
+        C = kwargs["C"]
         I1 = variable(tr(C))
         I2 = variable(0.5 * (tr(C)**2 - tr(C*C)))
         I3 = variable(det(C))
@@ -82,7 +83,7 @@ class LinearPoroelasticMaterial(object):
             f = 1.0
 
         Whyp = self.kappa1*(J1-3) + self.kappa2*(J2-3) + self.K*(J-1) - self.K*ln(J)
-        Psi = Whyp - self.M*self.b*(m/rho)*(J-1)*f + 0.5*self.M*(m/rho)**2*f - self.kappa0*ln(m/rho + phi0)
+        Psi = Whyp - self.M*self.b*(M/rho)*(J-1)*f + 0.5*self.M*(M/rho)**2*f - self.kappa0*ln(M/rho + phi0)
         return Psi
 
 
@@ -96,11 +97,9 @@ class NeoHookeanMaterial(object):
         self.lm = Constant(E*nu/((1 + nu)*(1 - 2*nu)))
 
 
-    def constitutive_law(self, F, **kwargs):
-        # kinematic variables
-        J = variable(det(F))
-        C = variable(F.T*F)
-        Ic = variable(J**(-2/3) * tr(C))
+    def constitutive_law(self, **kwargs):
+        C = kwargs["C"]
+        Ic = tr(C)
 
         Psi = (self.mu/2)*(Ic - 3) - self.mu*ln(J) + (self.lm/2)*(ln(J))**2
         return Psi

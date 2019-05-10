@@ -13,7 +13,7 @@ parameters["form_compiler"]["representation"] = "uflacs"
 parameters["form_compiler"]["cpp_optimize"] = True
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 
-set_log_level(20)
+set_log_level(30)
 
 
 class PoroelasticProblem(object):
@@ -140,12 +140,8 @@ class PoroelasticProblem(object):
         self.J = variable(det(self.F))
         self.C = variable(self.F.T*self.F)
 
-        # modified Cauchy-Green invariants
-        I1 = variable(self.J**(-2/3) * tr(self.C))
-        I2 = variable(self.J**(-4/3) * 0.5 * (tr(self.C)**2 - tr(self.C*self.C)))
-
-        self.Psi = self.material.constitutive_law(J=self.J, C=self.C, I1=I1,
-                I2=I2, M=self.mf, rho=rho)
+        self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
+                                                M=self.mf, rho=rho, phi=phi0)
         Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
 
         for boundary, condition in neumann_bcs.items():
@@ -171,6 +167,7 @@ class PoroelasticProblem(object):
         rho = self.rho()
         si = Constant(0.0)
         k = Constant(1/self.dt())
+        dt = Constant(self.dt())
         th, th_ = self.theta()
 
         # VK = TensorFunctionSpace(self.mesh, "P", 1)
@@ -249,7 +246,7 @@ class PoroelasticProblem(object):
         mpiRank = MPI.rank(comm)
 
         tol = self.TOL()
-        maxiter = 50
+        maxiter = 100
         t = 0.0
         dt = self.dt()
 
