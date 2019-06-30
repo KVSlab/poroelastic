@@ -4,15 +4,14 @@ for modelling the interaction between coronary perfusion and myocardial
 mechanics based on J Biomech. 2012 Mar 15; 45(5): 850–855.
 
 The demo is implemented in the main python file "demo_inflate.py"
-and requires the package 'poroelastic' to be imported.
-The module 'poroelastic' implements the multicompartment
-poroelastic equations. Poroelastic does only support Python3.x.
-Poroelastic requires FEniCS 2017.2.0, upwards compatibility is suspected,
+and requires the package 'Poroelastic' to be imported.
+The module 'Poroelastic' implements the multicompartment
+poroelastic equations. 'Poroelastic' does only support Python3.x.
+'Poroelastic' requires FEniCS 2017.2.0, upwards compatibility is suspected,
 but has not yet been tested.
 
-It is recommended to setup FEniCs on Docker.
-A detailed manual for the installation procedure
-can be found here https://fenicsproject.org/download/.
+It is recommended to setup FEniCs on Docker.A detailed manual for the
+installation procedure can be found here https://fenicsproject.org/download/.
 
 In short, to pull an image for creating a docker container you can
 use the docker pull command:
@@ -33,108 +32,71 @@ To view the output Paraview 5.x is required.
 
 """
 
-#First the required modules are imported.
-import sys
-import uuid
-import poroelastic as poro
-import dolfin as df
-import numpy as np
-
-# Access MPI functionality using dolfin's provided
-# MPI class to enable parallel computing, e.g. iterative adjusting of parameters.
-# Allows for parallelizing processes
-
-comm = df.mpi_comm_world()
-
-# We need to create a mesh based on the dolfin class dolfin.cpp.Mesh which is going
-# to cover the unit square. Here the mesh consists of nx x nx squares.
-
-# Create mesh
-nx = 10
-mesh = df.UnitSquareMesh(nx, nx)
-
-# To be able to pass arguments ,e.g. parameters, to the script executed,
-# or store parameters in a dictionary, the python class ParamParser()
-# was created.
-
-# Passing an argument (here <filename.cfg>) to script as argument
-# when executing from command line.
-params = poro.ParamParser()
-
-# Next, we need to generate a unique directory data will be stored in.
-# Using the uuid4() function for generating a random UUID (Universal Unique
-# Identifier, 128 bit number) a random identifictaion number is created and
-# with the string method converted to a string of hex digits.
-data_dir = str(uuid.uuid4())
-
-# Add result to dictionary section, key, value
-params.add_data("Simulation", "dir", data_dir)
-
-# Print unique simulation ID to screen
-print("Simulation ID {}".format(data_dir))
-
-#Print number of cells in mesh to screen
-print("Number of cells: {}".format(mesh.num_cells()))
-
-
 # Equation and problem definition - class PoroelasticProblem
 # -----------------------------------------------------------
 # This demonstration aims to capture the coupling between the fluid flow and the
-# mechanical deformation of the myocardial tissue. This is done by a novel porous mechanical framework
-# presented in J Biomech. 2012 Mar 15; 45(5): 850–855.
+# mechanical deformation of the myocardial tissue. This is done by a novel porous
+# mechanical framework presented in J Biomech. 2012 Mar 15; 45(5): 850–855.
 # The mathematical equations needed for solving the perfusion problem of the left
-# ventricle are represented in the 'PoroelasticProblem' module.
-# To understand the functions and classes behind this paper we will walk through
+# ventricle are represented in the 'problem' module.
+# To understand the functions and classes behind this demo, we will walk through
 # the main equation in the module 'problem'.
 #
 # To solve the complex problem described here, the class 'PoroelasticProblem'
 # was created. It inherits the main functionalities for handling the equations
 # of the poroelastic problem.
-# For solving the coupled solid-fluid equations, an iterative scheme between
-# the equations for the 'set_solid_variational_form' representing the divergence
-# of the stretch of the skeleton (solid), the compartmental fluid pressure
-# herein described as 'fluid_solid_coupling', and the divergence of the integral
-# of the mass divergence  described as 'set_fluid_variational_form'.
+# For solving the coupled solid-fluid equations, an iterative solving scheme is
+# performed between equations the divergence of the stretch of the skeleton
+# (solid) (I), the compartmental fluid pressure (II) and the divergence of the
+# integral of the mass divergence (III).
 #
-# The 'set_solid_variational_form' representing the solid variational forms
-# is provided from the equation:
+# (I) is described in the function 'set_solid_variational_form' of the class
+# 'PoroelasticProblem'. It inherits the solid variational form of the follwing
+# equation provided by the paper:
 #
 #   $ Psic = self.psi + L*(J-1 - sum([m[i]/rho)) for i in range self.N]
 #
 # where 'Psic 'represents the divergence of the stress tensor.
 #
-# Provided  from this equation, the  'solid_variational_form'  is created
-# where Psi, representing the constitutive law , is defined by:
+# Provided  from this equation, the  'solid_variational_form'  is created.
+# Where Psi, representing the constitutive law , is defined by:
 #
 #   $ self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
 #                                                M=m, rho=rho, phi=phi0)
 #
-# with J ...determinant of the defoemation gradient tensor 'F'
-# with C ...the right Cauchy-Green deformation Tensor
+# with J ...determinant of the deformation gradient tensor 'F'
+# with C ...the right Cauchy-Green deformation tensor
 # with M ...the mass increase of the fluid
 # with rho... the density of the fluid
 # with phi...the porosity of the solid phase
 #
-# The divergence of the stress tensor is then calculated from the solid_variational_form
+# The divergence of the stress tensor is then calculated from the
+# solid_variational_form as defined in the function 'set_solid_variational_form'
 # as follows:
 #
 #   $ Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
 #
 # with L ... being the Lagrange multiplier enforcing volume constraints
-# with m[i] ... the mass increase of the fluid
+# with m ... the fluid mass increase
 # with rho...being the density of the fluid
 #
-# The 'fluid_solid_coupling' can be represented as
+# (II) The 'fluid-solid-coupling' is repesented as the following equation
+# in the paper
+#
 #   $ p_i = (Del Psi_S)/(Del J self.phi_{f,i})) - L
 #
-# which becomes in the variational form
+# which becomes in the variational form in the function 'fluid_solid_coupling'
 #
 #   $ p*q*dx = (tr(diff(self.Psi, self.F) * self.F.T))/self.phif[i]*q*dx - L*q*dx
 #
-# with q ... being the TestFunction
-# with p ... being the TrialFunction
+# with q ... being the TestFunction living in the FunctionSpace FS_F
+# with p ... being the TrialFunction living in the FunctionSpace FS_F
+# The functionspaces are defined in the function 'create_function_spaces'
+# of the module 'problem' as MixedElement space if there is more than one
+# compartment which equals N > 1.
 #
-# At last, the fluid variational form for several compartments is represented by
+# At last, the fluid variational form for several compartments (N>1)
+# is represented in the function 'set_fluid_variational_form' by
 #
 #     vm = TestFunctions(self.FS_M)
 #     Form = sum([k*(m[i] - m_n[i])*vm[i]*dx for i in range(self.N)])\
@@ -142,7 +104,7 @@ print("Number of cells: {}".format(mesh.num_cells()))
 #                                             for i in range(self.N)])\
 #         + sum([inner(-((rho * self.J * inv(self.F) * self.K() * inv(self.F.T))*grad(self.p[i]), grad(vm[i]))*dx
 #                                             for i in range(self.N)])
-# where the inflow and outflow terms are represented by:
+# where the inflow and outflow terms are added and represented by:
 #
 #     # Add inflow terms
 #     Form += -rho*self.qi*vm*dx
@@ -150,24 +112,77 @@ print("Number of cells: {}".format(mesh.num_cells()))
 #     # Add outflow term
 #     Form += rho*q_out*vm*dx
 #
+# and the compartment exchange is included by:
+#
 #     # Compartment exchange
 #     for i in range(len(beta)):
 #         Form += -self.J*beta[i]*((self.p[i] - self.p[i+1])*vm[i] +\
 #                                 (self.p[i+1] - self.p[i])*vm[i+1])*dx
+# with vm ... being the TestFunction living in the FunctionSpace FS_M
+# with    ... being the TrialFunction living in the FunctionSpace FS_M
 #
-#     # Add inflow terms
-#     Form += -rho*self.qi*vm[0]*dx
-#
-#     # Add outflow term
-#     Form += rho*q_out*vm[-1]*dx
 # We will apply a time-stepping technique according theta-rule after Crank-Nicolson.
 # this represents a compromise between the explicit and implicit time-dependent
 # modelling method. For that to work, the solution for 'm' and 'th' need to be updated
 # after every iteration step allowing for adapted time-stepping.
 #   $M = th*m + th_*m_n
+#
+# Implementation
+# --------------
+#
+# This description goes through the implementation (in
+# `demo_inflate.py`) of a solver for the above described
+# poroelastic problem step-by-step.
+
+#First the required modules are imported.
+#
+import sys
+import uuid
+import poroelastic as poro
+import dolfin as df
+import numpy as np
+
+# Access MPI functionality using dolfin's provided MPI class to enable parallel
+# computing, e.g. iterative adjusting of parameters.
+#
+# Allows for parallelizing processes
+#
+comm = df.mpi_comm_world()
+#
+# We need to create a mesh based on the dolfin class dolfin.cpp.Mesh which is going
+# to cover the unit square. Here the mesh consists of nx x nx squares.
+#
+# Create mesh
+nx = 10
+mesh = df.UnitSquareMesh(nx, nx)
+#
+# To be able to pass arguments ,e.g. parameters, to the script executed,
+# or store parameters in a dictionary, the python class ParamParser()
+# was created.
+#
+# Here we intialize the paramparser for allowing for passing an argument
+# (here <filename.cfg>) to the script as argument when executing from the
+# command line.
+#
+params = poro.ParamParser()
+#
+# Next, we need to generate a unique directory data will be stored in.
+# Using the uuid4() function for generating a random UUID (Universal Unique
+# Identifier, 128 bit number) a random identifictaion number is created and
+# with the string method converted to a string of hex digits.
+data_dir = str(uuid.uuid4())
+#
+# Add result to dictionary section, key, value
+params.add_data("Simulation", "dir", data_dir)
+
+# Print unique simulation ID to screen
+print("Simulation ID {}".format(data_dir))
+
+# Print number of cells in mesh to screen
+print("Number of cells: {}".format(mesh.num_cells()))
 
 
-#Defining problem with mesh definition and configuration file provided parameters
+# Defining problem with mesh definition and configuration file provided parameters
 pprob = poro.PoroelasticProblem(mesh, params.p)
 
 # Create classes for defining parts of the boundaries and the interior
