@@ -31,15 +31,14 @@ class IsotropicExponentialFormMaterial(object):
         J = kwargs["J"]
         C = kwargs["C"]
         M = kwargs["M"]
-        rho = kwargs["rho"]
 
         I1 = variable(J**(-2/3) * tr(C))
         I2 = variable(J**(-4/3) * 0.5 * (tr(C)**2 - tr(C*C)))
 
         # constitutive law
-        Psi = self.a * (exp(self.D1 * (I1 * (1 + self.Qi1*M/rho) - 3)\
-            + self.D2 * (I2 *(1 + self.Qi2*M/rho) - 3)\
-            + self.D3 * ((J-1)**2 + self.Qi3*(M/rho)**2)) - 1)
+        Psi = self.a * (exp(self.D1 * (I1 * (1 + self.Qi1*M) - 3)\
+            + self.D2 * (I2 *(1 + self.Qi2*M) - 3)\
+            + self.D3 * ((J-1)**2 + self.Qi3*(M)**2)) - 1)
         return Psi
 
 
@@ -66,7 +65,6 @@ class LinearPoroelasticMaterial(object):
     def constitutive_law(self, **kwargs):
         # kwargs
         M = kwargs["M"]
-        rho = kwargs["rho"]
         phi0 = kwargs["phi"]
 
         # kinematic variables
@@ -83,11 +81,24 @@ class LinearPoroelasticMaterial(object):
             f = 1.0
 
         Whyp = self.kappa1*(J1-3) + self.kappa2*(J2-3) + self.K*(J-1) - self.K*ln(J)
-        Psi = Whyp - self.M*self.b*(M/rho)*(J-1)*f + 0.5*self.M*(M/rho)**2*f - self.kappa0*ln(M/rho + phi0)
+        Psi = Whyp - self.M*self.b*M*(J-1)*f + 0.5*self.M*f*M**2 - self.kappa0*ln(M + phi0)
         return Psi
 
 
+    def pore_pressure(self, **kwargs):
+        J = kwargs["J"]
+        M = kwargs["M"]
+        fJ = 2*(J-1-ln(J))/(J-1)**2
+        if np.isnan(assemble(fJ*dx)):
+            fJ = 1
+        return self.M * fJ * (self.b*(1-J) + M)
+
+
 class NeoHookeanMaterial(object):
+    # Config file parameters:
+    # material = "Neo-Hookean"
+    # E = 10.0
+    # nu = 0.3
 
     def __init__(self, param):
         # Parameters
@@ -98,6 +109,7 @@ class NeoHookeanMaterial(object):
 
 
     def constitutive_law(self, **kwargs):
+        J = kwargs["J"]
         C = kwargs["C"]
         Ic = tr(C)
 
