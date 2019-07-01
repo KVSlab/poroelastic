@@ -134,7 +134,7 @@ To view the output Paraview 5.x is required.
 # `demo_inflate.py`) of a solver for the above described
 # poroelastic problem step-by-step.
 
-#First the required modules are imported.
+# First the required modules are imported.
 #
 import sys
 import uuid
@@ -170,23 +170,35 @@ params = poro.ParamParser()
 # Using the uuid4() function for generating a random UUID (Universal Unique
 # Identifier, 128 bit number) a random identifictaion number is created and
 # with the string method converted to a string of hex digits.
+#
 data_dir = str(uuid.uuid4())
 #
 # Add result to dictionary section, key, value
+#
 params.add_data("Simulation", "dir", data_dir)
-
+#
 # Print unique simulation ID to screen
+#
 print("Simulation ID {}".format(data_dir))
-
+#
 # Print number of cells in mesh to screen
+#
 print("Number of cells: {}".format(mesh.num_cells()))
-
-
-# Defining problem with mesh definition and configuration file provided parameters
+#
+# Next, we are defining the problem with mesh definition and the parameters
+# provided by the configuration file.
+#
 pprob = poro.PoroelasticProblem(mesh, params.p)
-
-# Create classes for defining parts of the boundaries and the interior
-# of the domain
+#
+# Next, we want to divide our left ventricle, into 4 main subdomains, having there
+# individually set boundary conditions.
+# For that to work, we create classes for defining parts of the boundaries and
+# the interior of the domains.
+# We consider Dirichlet boundary conditions. These can be implied by creating a
+# simple function returning a boolean. The idea is to return 'True' for points
+# inside the subdomain and 'False' for those oustide.
+# In our case this means for 'Left' we set the boundaries to x=0.0 .
+#
 class Left(df.SubDomain):
     def inside(self, x, on_boundary):
         return df.near(x[0], 0.0) and on_boundary
@@ -202,8 +214,8 @@ class Top(df.SubDomain):
 class Bottom(df.SubDomain):
     def inside(self, x, on_boundary):
         return df.near(x[1], 0.0) and on_boundary
-
-# Next, we would like to create a meshfunction allwoing for the storage
+#
+# Next, we would like to create a meshfunction allowing for the storage
 # and numbering of subdomains using the 'MeshFunction' from the dolfin package.
 # When creating a MeshFunction an argument defining the type of MeshFunction
 # is required. This is represented by the first argument which in our example
@@ -214,39 +226,40 @@ class Bottom(df.SubDomain):
 # our case is '-1'. This argument is optional, but important to be defined in
 # respect to the boundary conditions, which need to be a dimension lower than
 # the space we are working in.
-
-# Initialize mesh function for boundary domains
+#
+# Initialize mesh function for boundary domains.
 boundaries = df.MeshFunction("size_t", mesh, mesh.topology().dim()-1)
-
+#
 # To ensure all boundaries are set to 0 allowing for knowing and tracking
 # th exact coordinates, the boundary values need to be set to 0.
-
+#
 # Hint: when ommiting this step in older dolfin versions you might actually end
 # up with randomly set boundary values.
-
+#
 boundaries.set_all(0)
-
-# Initialize sub-domain instances
-
+#
+# Initialize sub-domain instances.
+#
 left = Left()
 right = Right()
 top = Top()
 bottom = Bottom()
-
-# Initialize mesh function for boundary domains in sub-domains
-# Set markers allowing for tracking of changes in mesh before the mesh is deformed.
-# Often, you will find that these marks are saved into a dictionary.
-
+#
+# Next, we nitialize the mesh function for boundary domains in sub-domains.
+# We set markers allowing for tracking of changes in mesh before the mesh is deformed.
+# Often, you will find that these markers are saved into a dictionary.
+#
 left.mark(boundaries, 1)
 right.mark(boundaries, 2)
 top.mark(boundaries, 3)
 bottom.mark(boundaries, 4)
-
+#
 # Next, we need to add the dirichlet boundary conditions for the solid.
 # For that we will use the function 'add_solid_dirichlet_condition' from the
-# class PoroelasticProblem from the 'Poroelastic' package.
+# class 'PoroelasticProblem' from the 'Poroelastic' package.
 # This function allows for setting different dirichlet boundary conditions
 # depending on the subspace.
+#
 # The boundaries are set with the first argument in correspondence to the subdomains
 # marked by 1 (Left) and 4 (Bottom) defined by the boundaries function.
 # The third argument represents the sub domain instance the condition is
@@ -254,7 +267,7 @@ bottom.mark(boundaries, 4)
 # In our example the fourth argument functions as a keyword argument setting
 # the value for n in the vectorspace.
 # The boundary conditions are stored in a dictionary.
-# Optionally a string specifying a DirichletBC method can be passed as an argument.
+# Optionally, a string specifying a DirichletBC method can be passed as an argument.
 # This allows for the usage of DirichletBC function defined methods provided
 # by the dolfin package.
 # A timestep condition can be enforced by adding 'time' which functions as a boolean
@@ -267,63 +280,64 @@ bottom.mark(boundaries, 4)
 #   tcond = df.Expression('t', t=0.0, degree=1)
 #   pprob.add_solid_dirichlet_condition(tcond, boundaries, 1, time=True)
 #
-#   Time conditions will then be saved in an additiona new list.
-
+# Time conditions will then be saved in an additiona new list.
+#
 # Define Dirichlet boundary conditions
 zero = df.Constant(0.0)
 pprob.add_solid_dirichlet_condition(zero, boundaries, 1, n=0)
 pprob.add_solid_dirichlet_condition(zero, boundaries, 4, n=1)
-
+#
 # Eventually, we will have to store the data produced in files.
 # For that to work we will use a dolfin class supporting the output of meshes
 # and functions in XDMF format. This will allow us to create an XML file describing
-# the data produced and pointing to a so-called HDF4 file that will store the actual data.
-# In order to allow output of data in parallel 'comm ' will be used as an argument.
+# the data produced and pointing to a so-called HDF5 file that will store the actual
+# data.
+# In order to allow output of data in parallel, 'comm ' will be used as an argument.
 # The second argument passed represents the location the file will be stored in.
-
-# Before storing the data, we need to define major parameters of the xdmf file.
+#
+# Before storing the data, we need to define major parameters of the xdmf files.
 # The function 'set_xdmf_parameters' sets functionalities for processing and opening
 # of the XDMFFiles.
 
 #1) ' flush_output'
-# Enables the functionality to preview the XDMFFile produced, which comes in handy When
+# Enables the functionality to preview the XDMFFile produced, which comes in handy
 # when you have an iterative process taking a long time to run and you want to check
-# wether the results provided meet your expectations. If this is not set to true,
-# you cannot read the file produced (E.g. with Paraview) until the program terminates.
+# whether the results provided meet your expectations. If this is not set to true,
+# you cannot read the file produced (e.g. with Paraview) until the program terminates.
 
 #2) 'functions_share_mesh'
 # When enabled it makes all functions share the same mesh and time series.
 
 #3) 'rewrite_function_mesh'
-#  If False, this parameter limits each function to one mesh for the complete time series,
-# The Mesh will not be rewritten every time-step.
+#  If False, this parameter limits each function to one mesh for the complete time
+# series. The Mesh will not be rewritten every time-step.
 
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
     f.parameters['functions_share_mesh'] = True
     f.parameters['rewrite_function_mesh'] = False
 
-
-# Setting the number of compartments by the integer found for the key 'Parameter' , 'N'
-# in the input file.cfg.
-
+#
+# Setting the number of compartments by the integer found for the key 'Parameter' ,
+# 'N' in the input file.cfg.
+#
 N = int(params.p['Parameter']['N'])
-# f1 list divergence stress
-# f2 mass
-# f3
- # f4 list scalar of divergence change of deformation solid
+# f1 - list divergence stress
+# f2 - mass fluid
+# f3 - pressure
+ # f4 - list scalar of divergence change of deformation solid
 f1 = [df.XDMFFile(comm, '../data/{}/uf{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f2 = df.XDMFFile(comm, '../data/{}/mf.xdmf'.format(data_dir))
 f3 = [df.XDMFFile(comm, '../data/{}/p{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f4 = df.XDMFFile(comm, '../data/{}/du.xdmf'.format(data_dir))
-
+#
 # Initialize 'set_xdmf_parameters' for XDMFFiles to be created
-
+#
 [set_xdmf_parameters(f1[i]) for i in range(N)]
 set_xdmf_parameters(f2)
 [set_xdmf_parameters(f3[i]) for i in range(N)]
 set_xdmf_parameters(f4)
-
+#
 # dx and ds are predefined measures in dolfin referring to the integration over
 # cells and exterior facets (facets on the boundary), respectively.
 # Since dx and ds can take additional integer arguments, integration over subdomains
@@ -331,37 +345,35 @@ set_xdmf_parameters(f4)
 # In order to map the geometry information stored in the mesh functions to the
 # measures, we will define new measures and for ds we will use the boundary defining
 # mesh function for the subdomains as input.
-
 #
-
-# Define new measures associated with exterior boundaries
+# Define new measures associated with exterior boundaries.
 dx = df.Measure("dx")
 ds = df.Measure("ds")(subdomain_data=boundaries)
-
+#
 # Set start variables for the calculations
 sum_fluid_mass = 0
 theor_fluid_mass = 0
 sum_disp = 0
 domain_area = 1.0
-
+#
 # Using the get_params function provided by the ParamParser class, the configuration
 # file provided in self.prams is read and the parameters are stored as dictionary
 # params['name'] = value .
 # In this instance the key 'parameter' is looked up.
-
+#
 phi = params.p['Parameter']["phi"]
 rho = params.p['Parameter']["rho"]
 qi = params.p['Parameter']["qi"]
 dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
-
+#
 # The average error which will be calculated is stored in the list 'avg_error'.
 avg_error = []
-
+#
 # To solve the variational problem the class 'PoroelasticProblem' defined in the
 # the module 'problem' in the package 'Poroelastic' provides the function 'solve()'.
-# The function allows for parallel computing and will return process rank of the computed processes
-# for the communicator or the local machine.
+# The function allows for parallel computing and will return process rank of the
+# computed processes for the communicator or the local machine.
 # Furthermore, the function initializes the tolerance function TOL() from the
 # class 'PoroelasticProblem' and sets it to the value found for the keys 'TOL'
 # in the dictionary created when reading in the configuration file.
@@ -389,35 +401,37 @@ avg_error = []
 # The 'choose_solver' function of the 'problem' module allows the user to choose
 # between a direct solver and an iterative one. For that the 'choose_solver' functions
 # goes through the params dictionary created when reading in the configuration file,
-# and if there is a key defined for ' Simulation and solver' defining the value as directed
-# the method of solving the NonlinearVariationalProblem will be chosen to be done directly
-# by executing the function 'direct_solver'.
+# and if there is a key defined for ' Simulation and solver' defining the value as
+# directed the method of solving the NonlinearVariationalProblem will be chosen to
+# be done directly by executing the function 'direct_solver'.
 # if not running a Simulation, the value and method ' direct' can be ommitted
 # and the variational problem can be solved in iterative manner by executing the
 # function 'iterative_solver'.
 #
 # A main difference between the two approaches is the computational expense. while
-# we will use in this demo the iterative approach, which is less computationally expensive,
-# one could also define in the configuration file the use of the direct approach. While the
-# the direct approach allows solving the problem in one major computational step,
-# requiring a lot of RAM, the indirect method approaches the solution gradually by
-# in smaller steps which require less RAM but create the need for iteration over solved steps.
-# The iterative approach has in consequence the advantage of being faster. Nevertheless,
-# the tolerance estimate wil be defined by the  solution from the direct method of
-# the well-defined or well-conditioned problem.
+# we will use in this demo the iterative approach, which is less computationally
+# expensive, one could also define in the configuration file the use of the direct
+# approach. While the the direct approach allows solving the problem in one major
+# computational step, requiring a lot of RAM, the indirect method approaches the
+# solution gradually by in smaller steps which require less RAM but create the
+# need for iteration over solved steps.
+# The iterative approach has in consequence the advantage of being faster.
+# Nevertheless, the tolerance estimate wil be defined by the  solution from the
+# direct method of the well-defined or well-conditioned problem.
 #
 # A while-loop in the 'solve' function enables ffor running the Simulation
-# for as long as defined in the 'Params' dictionary created when reading the configuration file.
-# The MPI-worker number 1 (rank 0) is then defined to be in charge of printing the time
-# by initiating the function 'print_time'.
+# for as long as defined in the 'Params' dictionary created when reading the
+# configuration file.
+# The MPI-worker number 1 (rank 0) is then defined to be in charge of printing
+# the time by initiating the function 'print_time'.
 # 'print_time' is a function defined in the 'utils' module of the 'Poroelastic'
 # package.
 # The variables 'iter' (iteration) and 'eps' (error-per-step) are initialized.
 #
 # A second while-loop in the 'solve' function limits the number of maximum_iterations
 # to eps > tol and iter < maxiter. That means, that the iteration over the equations
-# is done as long as the error per step (eps) is above the threshold for the tolerance (tol)
-# and the maximum number of iterations set has not been exceeded.
+# is done as long as the error per step (eps) is above the threshold for the tolerance
+# (tol) and the maximum number of iterations set has not been exceeded.
 #
 # During each iteration the latest calculated pressure function 'p' is assigned to
 # the function 'mf_'. For that, the dolfin function .assign() is used, allowing
