@@ -82,13 +82,14 @@ class PoroelasticProblem(object):
             self.material = NeoHookeanMaterial(self.params['Material'])
 
         # Set variational forms
-        self.SForm, self.dSForm = self.set_solid_variational_form({})
-        self.MForm, self.dMForm = self.set_fluid_variational_form()
+        self.SForm = self.set_solid_variational_form()
+        self.MForm = self.set_fluid_variational_form()
 
 
     def create_function_spaces(self):
         V1 = VectorElement('P', self.mesh.ufl_cell(), 1)
         V2 = VectorElement('P', self.mesh.ufl_cell(), 2)
+        DG1 = FiniteElement('DG', self.mesh.ufl_cell(), 1)
         P1 = FiniteElement('P', self.mesh.ufl_cell(), 1)
         P2 = FiniteElement('P', self.mesh.ufl_cell(), 2)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
@@ -98,7 +99,7 @@ class PoroelasticProblem(object):
         else:
             M = MixedElement([P1 for i in range(self.N)])
             FS_M = FunctionSpace(self.mesh, M)
-        FS_F = FunctionSpace(self.mesh, P2)
+        FS_F = FunctionSpace(self.mesh, P1)
         FS_V = FunctionSpace(self.mesh, V1)
         return FS_S, FS_M, FS_F, FS_V
 
@@ -118,9 +119,21 @@ class PoroelasticProblem(object):
             self.tconditions.append(condition)
 
 
+    def add_solid_robin_conditions(self, conditions, boundaries):
+        dU, L = split(self.Us)
+        v, w = split(self.TFS)
+        n = FacetNormal(self.mesh)
+        for condition, boundary in zip(conditions, boundaries):
+            spring = Constant(0.1)
+            self.SForm += (inner(condition*n, v) +\
+                                        inner(spring*dU, v))*self.ds(boundary)
+
+
     def add_solid_neumann_conditions(self, conditions, boundaries):
-        self.SForm, self.dSForm =\
-                    self.set_solid_variational_form(zip(conditions, boundaries))
+        v, w = split(self.TFS)
+        n = FacetNormal(self.mesh)
+        for condition, boundary in zip(conditions, boundaries):
+            self.SForm += inner(condition*n, v)*self.ds(boundary)
 
 
     def add_fluid_dirichlet_condition(self, condition, *args, **kwargs):
@@ -154,12 +167,12 @@ class PoroelasticProblem(object):
                     for i in range(self.N)])/self.params['Parameter']['rho']
 
 
-    def set_solid_variational_form(self, neumann_bcs):
+    def set_solid_variational_form(self):
 
         U = self.Us
         dU, L = split(U)
-        V = TestFunction(self.FS_S)
-        v, w = split(V)
+        self.TFS = TestFunction(self.FS_S)
+        v, w = split(self.TFS)
 
         # parameters
         rho = self.rho()
@@ -177,16 +190,10 @@ class PoroelasticProblem(object):
         self.C = variable(self.F.T*self.F)
 
         self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
-                                                M=m, rho=rho, phi=phi0)
-        Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
-
-        for condition, boundary in neumann_bcs:
-            Psic += dot(condition*n, dU)*self.ds(boundary)
-
-        Form = derivative(Psic, U, V)
-        dF = derivative(Form, U, TrialFunction(self.FS_S))
-
-        return Form, dF
+                                                M=m, phi=phi0)
+        Psic = self.Psi*dx + L*(self.J-Constant(1)-m)*dx
+        Form = derivative(Psic, U, self.TFS)
+        return Form
 
 
     def set_fluid_variational_form(self):
@@ -221,7 +228,7 @@ class PoroelasticProblem(object):
         A = variable(rho * self.J * inv(self.F) * self.K() * inv(self.F.T))
         if self.N == 1:
             vm = TestFunction(self.FS_M)
-            Form = k*(m - m_n)*vm*dx + dot(grad(M), k*(dU-dU_n))*vm*dx +\
+            Form = k*(m - m_n)*vm*dx + inner(grad(M), k*dU)*vm*dx -\
                     inner(-A*grad(self.p[0]), grad(vm))*dx
 
             # Add inflow terms
@@ -249,25 +256,27 @@ class PoroelasticProblem(object):
             # Add outflow term
             Form += rho*q_out*vm[-1]*dx
 
-        dF = derivative(Form, m, TrialFunction(self.FS_M))
-
-        return Form, dF
+        return Form
 
 
     def fluid_solid_coupling(self):
         dU, L = self.Us.split(True)
-        p = TrialFunction(self.FS_F)
-        q = TestFunction(self.FS_F)
         if self.N == 1:
             FS = self.FS_M
         else:
             FS = self.FS_M.sub(0).collapse()
         for i in range(self.N):
+            p = TrialFunction(self.FS_F)
+            q = TestFunction(self.FS_F)
+
             a = p*q*dx
-            Ll = (tr(diff(self.Psi, self.F) * self.F.T))/self.phif[i]*q*dx - L*q*dx
+            # Ll = self.material.pore_pressure(J=self.J,
+                                        # M=self.sum_fluid_mass())*q*dx - L*q*dx
+            Ll = diff(self.Psi, self.J)/self.phif[i]*q*dx - L*q*dx
+            # Ll = (tr(diff(self.Psi, self.F) * self.F.T))/self.phif[i]*q*dx - L*q*dx
             p = Function(self.FS_F)
-            solve(a == Ll, p, self.pbcs, solver_parameters={"linear_solver": "minres",
-                                                "preconditioner": "hypre_amg"})
+            solve(a == Ll, p, bcs=self.pbcs, solver_parameters={"linear_solver":
+                                    "mumps"})
             self.p[i].assign(project(p, FS))
 
 
@@ -286,7 +295,6 @@ class PoroelasticProblem(object):
 
             solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
                                                 "preconditioner": "hypre_amg"})
-
 
 
     def move_mesh(self):
@@ -310,12 +318,15 @@ class PoroelasticProblem(object):
         t = 0.0
         dt = self.dt()
 
+        sdF = derivative(self.SForm, self.Us, TrialFunction(self.FS_S))
+        mdF = derivative(self.MForm, self.mf, TrialFunction(self.FS_M))
+
         mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
-                                            J=self.dMForm)
+                                            J=mdF)
         msol = self.choose_solver(mprob)
 
         sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.sbcs,
-                                            J=self.dSForm)
+                                            J=sdF)
         ssol = self.choose_solver(sprob)
 
         while t < self.params['Parameter']['tf']:
@@ -342,11 +353,13 @@ class PoroelasticProblem(object):
             self.Us_n.assign(self.Us)
 
             # Calculate fluid vector
-            self.calculate_flow_vector()
+            # self.calculate_flow_vector()
 
-            yield self.mf, self.Uf, self.p, self.Us, t
+            phif = [project(self.phif[i], self.FS_M) for i in range(self.N)]
 
             self.move_mesh()
+
+            yield self.mf, self.Uf, self.p, self.Us, phif, t
 
             t += dt
 
