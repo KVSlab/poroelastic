@@ -46,17 +46,17 @@ To view the output Paraview 5.x is required.
 # was created. It inherits the main functionalities for handling the equations
 # of the poroelastic problem.
 # For solving the coupled solid-fluid equations, an iterative solving scheme is
-# performed between equations the divergence of the stretch of the skeleton
-# (solid) (I), the compartmental fluid pressure (II) and the divergence of the
-# integral of the mass divergence (III).
+# performed between equations the stress of the material goverened by the constitutive
+# law extended by the volume contraints (I), the compartmental fluid pressure (II)
+# and the divergence of the fluid mass increase over time (III).
 #
 # (I) is described in the function 'set_solid_variational_form' of the class
 # 'PoroelasticProblem'. It inherits the solid variational form of the follwing
-# equation provided by the paper:
+# equation provided in the paper:
 #
 #   $ Psic = self.psi + L*(J-1 - sum([m[i]/rho)) for i in range self.N]
 #
-# where 'Psic 'represents the divergence of the stress tensor.
+# where 'Psic 'represents the new constitutive law.
 #
 # Provided  from this equation, the  'solid_variational_form'  is created.
 # Where Psi, representing the constitutive law , is defined by:
@@ -70,8 +70,8 @@ To view the output Paraview 5.x is required.
 # with rho... the density of the fluid
 # with phi...the porosity of the solid phase
 #
-# The divergence of the stress tensor is then calculated from the
-# solid_variational_form as defined in the function 'set_solid_variational_form'
+# The new constitutive law subjected by the volume constraint is defined as
+# solid variational form as defined in the function 'set_solid_variational_form'
 # as follows:
 #
 #   $ Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
@@ -80,8 +80,8 @@ To view the output Paraview 5.x is required.
 # with m ... the fluid mass increase
 # with rho...being the density of the fluid
 #
-# (II) The 'fluid-solid-coupling' is repesented as the following equation
-# in the paper
+# (II) The 'fluid-solid-coupling' governing the compartmental fluid pressur
+# is repesented as the following equation in the paper
 #
 #   $ p_i = (Del Psi_S)/(Del J self.phi_{f,i})) - L
 #
@@ -502,11 +502,6 @@ avg_error = []
 #
 # Upon exiting the for loop, the XDMFFiles created are closed by calling the
 # 'close()' function.
-# domain_area scalar value
-# sum_fluid_mass scalar values
-# theor_fluid_mass scalar value
-# sum_dis Matrix
-# avg_error scalar values
 
 for Mf, Uf, p, Us, t in pprob.solve():
 
