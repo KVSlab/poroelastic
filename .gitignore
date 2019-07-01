@@ -105,3 +105,13 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# output files
+*.h5
+*.xdmf
+*.png
+*.pvd
+*.vtu
+
+# backups
+*.bak
