@@ -54,7 +54,7 @@ To view the output Paraview 5.x is required.
 # 'PoroelasticProblem'. It inherits the solid variational form of the follwing
 # equation provided in the paper:
 #
-#   $ Psic = self.psi + L*(J-1 - sum([m[i]/rho)) for i in range self.N]
+#   $ \Psi^{s}_{cons} =  \Psi^{s} + \lambda(J-1- \sum_{i}^{\N}\frac{ m_{i}}{\rho_{f}}$
 #
 # where 'Psic 'represents the new constitutive law.
 #
@@ -80,10 +80,10 @@ To view the output Paraview 5.x is required.
 # with m ... the fluid mass increase
 # with rho...being the density of the fluid
 #
-# (II) The 'fluid-solid-coupling' governing the compartmental fluid pressur
+# (II) The 'fluid-solid-coupling' governing the compartmental fluid pressurre
 # is repesented as the following equation in the paper
 #
-#   $ p_i = (Del Psi_S)/(Del J self.phi_{f,i})) - L
+#   $ p_{i} = \frac{\partial \Psi^{s}}{\partial (J \phi_{f,i})} - \lambda $
 #
 # which becomes in the variational form in the function 'fluid_solid_coupling'
 #
@@ -94,8 +94,10 @@ To view the output Paraview 5.x is required.
 # The functionspaces are defined in the function 'create_function_spaces'
 # of the module 'problem' as MixedElement space if there is more than one
 # compartment which equals N > 1.
-#
-# At last, the fluid variational form for several compartments (N>1)
+# The fluid mass increase over time (III) considering multiple compartments
+# is represented in the paper as:
+#   $ \frac{d^{s}m_{i}}{dt}= - \nabla_{X}\cdot(-\rho_{f}J\mathbf{F^{-1}K_{i}F^{-T}}\nabla_{X}p_{i})+(\rho_{f}q_{i})+\sum_{k=1}^{\N}-J\beta_{i,k}(p_{i}-p_{k})$
+# The fluid variational form for several compartments (N>1)
 # is represented in the function 'set_fluid_variational_form' by
 #
 #     vm = TestFunctions(self.FS_M)
