@@ -392,7 +392,7 @@ avg_error = []
 # dolfin class 'NonlinearVariationalProblem', a class representing a nonlinear
 # variational problem.
 # Besides the variational form, the unknown function has to be passed as parameter,
-# which in out example is represented by mf (fluid mass) or Us (divergence of solid).
+# which in our example is represented by mf (fluid mass) or Us (extended constitutive law).
 # The other parameters passed to specify boundary conditions and the Jacobiany
 # and the Jacobian are optional.
 # After setting the parameters of the 'NonlinearVariationalProblem' the 'choose_solver'
@@ -436,8 +436,8 @@ avg_error = []
 # During each iteration the latest calculated pressure function 'p' is assigned to
 # the function 'mf_'. For that, the dolfin function .assign() is used, allowing
 # to assign one function to another.
-# The variational problem for the solid, for the fluid and for the fluid_solid_coupling (defining 'p')
-# are initiated respectively.
+# The variational problem for the solid, for the fluid and for the fluid_solid_coupling
+# (defining 'p') are initiated respectively.
 # The error variable 'e' is then calculated by first substratingthe pressure variable
 # 'mf' assigned from the iteration step before from the current 'p[0]' .
 # The error 'eps' is in the next step evaluated by the square of the error "e"
@@ -475,14 +475,15 @@ avg_error = []
 #
 # The results will be written to the XDMFFiles created earlier, using the 'write_file'
 # function of the 'utils' module. This function itself will initiate the DOLFIN
-# provided 'set_log_level' function, deciding which messages routed through the logging
-# system will be printed to the console. Calling the function 'set_log_level', we can
-# specify the log level of the messages printed by setting the value for the Optionally# integer argument.
-# In our example it is set to 40, meaning with the default level being 20, only messages
-# higher than or equal to the set log level will be printed.
-# next, the 'write_checkpoint' allows for saving a function to an XDMFFile for checkpointing,
-# taking in the parameters of the function to save, the name (label) of the function used,
-# and the time step.
+# provided 'set_log_level' function, deciding which messages routed through the
+# logging system will be printed to the console. Calling the function 'set_log_level',
+# we can specify the log level of the messages printed by setting the value for the
+# optional integer argument.
+# In our example it is set to 40, meaning with the default level being 20, only
+# messages higher than or equal to the set log level will be printed.
+# next, the 'write_checkpoint' allows for saving a function to an XDMFFile for
+# checkpointing, taking in the parameters of the function to save, the name (label)
+# of the function used, and the time step.
 # Last, the log level is increased by setting the integer to 30, allowing for
 # for messages to be printed.
 #
