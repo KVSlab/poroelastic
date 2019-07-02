@@ -1,32 +1,32 @@
-__author__ = "Alexandra Diem <alexandra@simula.no>"
-""" This FEniCs demo is implementing the porous mechanical framework
-for modelling the interaction between coronary perfusion and myocardial
-mechanics based on J Biomech. 2012 Mar 15; 45(5): 850–855.
+__author__ = "Alexandra Diem, Lisa Pankewitz"
+__copyright__ = "Copyright 2019, Alexandra Diem"
+__license__ = "BSD-3"
+__maintainer__ = "Alexandra Diem"
+__email__ = "alexandra@simula.no"
 
-The demo is implemented in the main python file "demo_inflate.py"
-and requires the package 'Poroelastic' to be imported.
-The module 'Poroelastic' implements the multicompartment
-poroelastic equations. 'Poroelastic' does only support Python3.x.
-'Poroelastic' requires FEniCS 2017.2.0, upwards compatibility is suspected,
-but has not yet been tested.
+""" This poroelastic demo implements an inflating unit square using the porous
+mechanical framework for modelling the interaction between coronary perfusion
+and myocardial mechanics based on J Biomech. 2012 Mar 15; 45(5): 850–855.
 
-It is recommended to setup FEniCs on Docker.A detailed manual for the
+The demo is implemented in the main python file 'demo_inflate.py' and requires
+the package 'poroelastic'. The module 'poroelastic' implements the multicompartment
+poroelastic equations. 'poroelastic' requires Python 3.x, and is based on
+FEniCS 2017.2.0 (upwards compatibility is suspected, but has not yet been
+tested).
+
+It is recommended to setup FEniCS on Docker. A detailed manual for the
 installation procedure can be found here https://fenicsproject.org/download/.
 
-In short, to pull an image for creating a docker container you can
-use the docker pull command:
+In short, to create an image that contains all dependencies of 'poroelastic'
+run:
 
-    $docker pull quay.io/fenicsproject/stable
+    $docker build --no-cache -t poroelastic:2017.2.0 .
 
-You can then run the docker container in the version FEniCs 2017.2.0
-using the following command:
+You can then run the docker container using the following command:
 
-    $docker run -ti -v $(pwd):/home/fenics/shared quay.io/fenicsproject/stable:2017.2.0
+    $docker run -ti -p 127.0.0.1:8000:8000 -v $(pwd):/home/fenics/shared -w /home/fenics/shared "poroelastic:2017.2.0"
 
 The tag reflects the FEniCS version used to develop the package.
-Inside the Docker container, the 'poroelastic' package is installed visualization
-
-    $python3 setup.py install
 
 To view the output Paraview 5.x is required.
 
@@ -35,105 +35,115 @@ To view the output Paraview 5.x is required.
 # Equation and problem definition - class PoroelasticProblem
 # -----------------------------------------------------------
 # This demonstration aims to capture the coupling between the fluid flow and the
-# mechanical deformation of the myocardial tissue. This is done by a novel porous
+# mechanical deformation of the myocardial tissue. This is done by a porous
 # mechanical framework presented in J Biomech. 2012 Mar 15; 45(5): 850–855.
 # The mathematical equations needed for solving the perfusion problem of the left
 # ventricle are represented in the 'problem' module.
 # To understand the functions and classes behind this demo, we will walk through
-# the main equation in the module 'problem'.
+# the main functions in the module 'problem'.
 #
-# To solve the complex problem described here, the class 'PoroelasticProblem'
-# was created. It inherits the main functionalities for handling the equations
+# To solve the poroelasticity problem described here, the class 'PoroelasticProblem'
+# was created. It implements the main functionalities for handling the equations
 # of the poroelastic problem.
-# For solving the coupled solid-fluid equations, an iterative solving scheme is
-# performed between equations the stress of the material goverened by the constitutive
-# law extended by the volume contraints (I), the compartmental fluid pressure (II)
-# and the divergence of the fluid mass increase over time (III).
+# To solve the two-way fluid-solid coupling, an iterative scheme is
+# performed between the equations of momentum balance of the solid kinematics
+# goverened by the constitutive law (I), the compartmental fluid pressure (II)
+# and the change fluid mass increase over time (III).
 #
 # (I) is described in the function 'set_solid_variational_form' of the class
-# 'PoroelasticProblem'. It inherits the solid variational form of the follwing
-# equation provided in the paper:
+# 'PoroelasticProblem'. It implements the solid variational form of the momentum
+# balance equation provided in the paper:
 #
-#   $ Psic = self.psi + L*(J-1 - sum([m[i]/rho)) for i in range self.N]
+#   $ Div (F*S) = 0
 #
-# where 'Psic 'represents the new constitutive law.
+# where S is the second Piola-Kirchhoff stress tensor subjected to the volume
+# constraint given by
 #
-# Provided  from this equation, the  'solid_variational_form'  is created.
-# Where Psi, representing the constitutive law , is defined by:
+#   $ S = dPsi/dE + L*J*C^-1
 #
-#   $ self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
-#                                                M=m, rho=rho, phi=phi0)
-#
-# with J ...determinant of the deformation gradient tensor 'F'
-# with C ...the right Cauchy-Green deformation tensor
-# with M ...the mass increase of the fluid
-# with rho... the density of the fluid
-# with phi...the porosity of the solid phase
-#
-# The new constitutive law subjected by the volume constraint is defined as
-# solid variational form as defined in the function 'set_solid_variational_form'
-# as follows:
+# such that F*S is given by
 #
 #   $ Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
 #
-# with L ... being the Lagrange multiplier enforcing volume constraints
-# with m ... the fluid mass increase
-# with rho...being the density of the fluid
+# with L ... Lagrange multiplier enforcing volume constraints
+# with m ... sum fluid mass increase over all compartments
+# with rho ... fluid density
 #
-# (II) The 'fluid-solid-coupling' governing the compartmental fluid pressur
-# is repesented as the following equation in the paper
+# where 'self.Psi' represents the constitutive law defined by one of the
+# material models implemented in the module 'material_models'
+#
+#    $ self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
+#                                                M=m, rho=rho, phi=phi0)
+#
+# with J ... determinant of the deformation gradient tensor 'F'
+# with C ... right Cauchy-Green deformation tensor
+# with M ... total fluid mass increase
+# with rho ... fluid density
+# with phi ... porosity of the fluid phase
+#
+# The variational form of the solid momentum balance equation is implemented
+# in 'set_solid_variational_form' as
+#
+#   $ Form = derivative(Psic, U, V)
+#
+# for 'Function' 'U' and 'TestFunction' 'V' on 'FunctionSpace' 'self.FS_S',
+# with Jacobian
+#
+#   $ dF = derivative(Form, U, TrialFunction(self.FS_S))
+#
+# (II) The 'fluid-solid-coupling' governing the compartmental fluid pressure
+# is repesented by the following equation
 #
 #   $ p_i = (Del Psi_S)/(Del J self.phi_{f,i})) - L
 #
-# which becomes in the variational form in the function 'fluid_solid_coupling'
+# which is implemented as a variational form by solving
 #
 #   $ p*q*dx = (tr(diff(self.Psi, self.F) * self.F.T))/self.phif[i]*q*dx - L*q*dx
 #
-# with q ... being the TestFunction living in the FunctionSpace FS_F
-# with p ... being the TrialFunction living in the FunctionSpace FS_F
-# The functionspaces are defined in the function 'create_function_spaces'
-# of the module 'problem' as MixedElement space if there is more than one
-# compartment which equals N > 1.
+# with q ... 'TestFunction' on 'FunctionSpace' 'self.FS_F'
+# with p ... 'TrialFunction' on 'FunctionSpace' 'self.FS_F'
 #
-# At last, the fluid variational form for several compartments (N>1)
-# is represented in the function 'set_fluid_variational_form' by
+# The function spaces are defined in the function 'create_function_spaces'
+# as 'MixedElement' space if there is more than one compartment, i.e N>1.
 #
-#     vm = TestFunctions(self.FS_M)
+# (III) The fluid variational form for multiple compartments (N>1) is
+# implemented in the function 'set_fluid_variational_form' as
+#
 #     Form = sum([k*(m[i] - m_n[i])*vm[i]*dx for i in range(self.N)])\
 #         + sum([dot(grad(M[i]), k*(dU-dU_n))*vm[i]*dx
 #                                             for i in range(self.N)])\
 #         + sum([inner(-((rho * self.J * inv(self.F) * self.K() * inv(self.F.T))*grad(self.p[i]), grad(vm[i]))*dx
 #                                             for i in range(self.N)])
-# where the inflow and outflow terms are added and represented by:
 #
-#     # Add inflow terms
+# with m ... (mixed) 'TrialFunction' on 'FunctionSpace' 'self.FS_M'
+# with vm ... (mixed) 'TestFunction' on 'FunctionSpace' 'self.FS_M'
+#
+# Time is discretised according to the theta-rule (Crank-Nicolson) by defining
+#
+#   $M = th*m + th_*m_n
+#
+# with m_n ... solution for m from the previous time step
+#
+# where the inflow and outflow terms are represented by:
+#
 #     Form += -rho*self.qi*vm*dx
 #
-#     # Add outflow term
 #     Form += rho*q_out*vm*dx
 #
 # and the compartment exchange is included by:
 #
-#     # Compartment exchange
 #     for i in range(len(beta)):
 #         Form += -self.J*beta[i]*((self.p[i] - self.p[i+1])*vm[i] +\
 #                                 (self.p[i+1] - self.p[i])*vm[i+1])*dx
-# with vm ... being the TestFunction living in the FunctionSpace FS_M
-# with    ... being the TrialFunction living in the FunctionSpace FS_M
 #
-# We will apply a time-stepping technique according theta-rule after Crank-Nicolson.
-# this represents a compromise between the explicit and implicit time-dependent
-# modelling method. For that to work, the solution for 'm' and 'th' need to be updated
-# after every iteration step allowing for adapted time-stepping.
-#   $M = th*m + th_*m_n
 #
 # Implementation
 # --------------
 #
-# This description goes through the implementation (in
-# `demo_inflate.py`) of a solver for the above described
-# poroelastic problem step-by-step.
-
+# This description goes through the implementation of 'demo_inflate.py', which
+# implements the inflation of a unit square using the fluid source term q
+# step-by-step.
+#
 # First the required modules are imported.
 #
 import sys
@@ -141,39 +151,33 @@ import uuid
 import poroelastic as poro
 import dolfin as df
 import numpy as np
-
-# Access MPI functionality using dolfin's provided MPI class to enable parallel
-# computing, e.g. iterative adjusting of parameters.
 #
-# Allows for parallelizing processes
+# Access MPI communicator using dolfin's provided MPI interface to enable
+# parallel computing.
 #
 comm = df.mpi_comm_world()
 #
-# We need to create a mesh based on the dolfin class dolfin.cpp.Mesh which is going
-# to cover the unit square. Here the mesh consists of nx x nx squares.
+# We need to create a mesh based on the dolfin class dolfin.cpp.Mesh. Here the
+# mesh consists of a unit square discretised into 2 x nx x nx triangles.
 #
 # Create mesh
 nx = 10
 mesh = df.UnitSquareMesh(nx, nx)
 #
-# To be able to pass arguments ,e.g. parameters, to the script executed,
-# or store parameters in a dictionary, the python class ParamParser()
-# was created.
-#
-# Here we intialize the paramparser for allowing for passing an argument
-# (here <filename.cfg>) to the script as argument when executing from the
-# command line.
+# Parameters are loaded using the class 'ParamParser' that reads and processes
+# the provided cfg file.
 #
 params = poro.ParamParser()
 #
-# Next, we need to generate a unique directory data will be stored in.
+# Next, we generate a unique directory for data storage.
+#
 # Using the uuid4() function for generating a random UUID (Universal Unique
 # Identifier, 128 bit number) a random identifictaion number is created and
 # with the string method converted to a string of hex digits.
 #
 data_dir = str(uuid.uuid4())
 #
-# Add result to dictionary section, key, value
+# Add result to parameter dictionary providing section, key, value
 #
 params.add_data("Simulation", "dir", data_dir)
 #
@@ -181,16 +185,12 @@ params.add_data("Simulation", "dir", data_dir)
 #
 print("Simulation ID {}".format(data_dir))
 #
-# Print number of cells in mesh to screen
-#
-print("Number of cells: {}".format(mesh.num_cells()))
-#
-# Next, we are defining the problem with mesh definition and the parameters
-# provided by the configuration file.
+# Next, we initialise the 'PoroelasticProblem' with the Mesh object and ParamParser
+# dictionary.
 #
 pprob = poro.PoroelasticProblem(mesh, params.p)
 #
-# Next, we want to divide our left ventricle, into 4 main subdomains, having there
+# Next we divide our left ventricle into 4 main subdomains, having there
 # individually set boundary conditions.
 # For that to work, we create classes for defining parts of the boundaries and
 # the interior of the domains.
