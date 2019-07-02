@@ -54,7 +54,7 @@ To view the output Paraview 5.x is required.
 # 'PoroelasticProblem'. It inherits the solid variational form of the follwing
 # equation provided in the paper:
 #
-#   $ Psic = self.psi + L*(J-1 - sum([m[i]/rho)) for i in range self.N]
+#   $ \Psi^{s}_{cons} =  \Psi^{s} + \lambda(J-1- \sum_{i}^{\N}\frac{ m_{i}}{\rho_{f}}$
 #
 # where 'Psic 'represents the new constitutive law.
 #
@@ -80,10 +80,10 @@ To view the output Paraview 5.x is required.
 # with m ... the fluid mass increase
 # with rho...being the density of the fluid
 #
-# (II) The 'fluid-solid-coupling' governing the compartmental fluid pressur
+# (II) The 'fluid-solid-coupling' governing the compartmental fluid pressurre
 # is repesented as the following equation in the paper
 #
-#   $ p_i = (Del Psi_S)/(Del J self.phi_{f,i})) - L
+#   $ p_{i} = \frac{\partial \Psi^{s}}{\partial (J \phi_{f,i})} - \lambda $
 #
 # which becomes in the variational form in the function 'fluid_solid_coupling'
 #
@@ -94,8 +94,10 @@ To view the output Paraview 5.x is required.
 # The functionspaces are defined in the function 'create_function_spaces'
 # of the module 'problem' as MixedElement space if there is more than one
 # compartment which equals N > 1.
-#
-# At last, the fluid variational form for several compartments (N>1)
+# The fluid mass increase over time (III) considering multiple compartments
+# is represented in the paper as:
+#   $ \frac{d^{s}m_{i}}{dt}= - \nabla_{X}\cdot(-\rho_{f}J\mathbf{F^{-1}K_{i}F^{-T}}\nabla_{X}p_{i})+(\rho_{f}q_{i})+\sum_{k=1}^{\N}-J\beta_{i,k}(p_{i}-p_{k})$
+# The fluid variational form for several compartments (N>1)
 # is represented in the function 'set_fluid_variational_form' by
 #
 #     vm = TestFunctions(self.FS_M)
@@ -131,7 +133,7 @@ To view the output Paraview 5.x is required.
 # --------------
 #
 # This description goes through the implementation (in
-# `demo_inflate.py`) of a solver for the above described
+# `demo_squeeze.py`) of a solver for the above described
 # poroelastic problem step-by-step.
 
 # First the required modules are imported.
@@ -190,7 +192,7 @@ print("Number of cells: {}".format(mesh.num_cells()))
 #
 pprob = poro.PoroelasticProblem(mesh, params.p)
 #
-# Next, we want to divide our left ventricle, into 4 main subdomains, having there
+# Next, we want to divide our cube, into 4 main subdomains, having their
 # individually set boundary conditions.
 # For that to work, we create classes for defining parts of the boundaries and
 # the interior of the domains.
@@ -245,7 +247,7 @@ right = Right()
 top = Top()
 bottom = Bottom()
 #
-# Next, we nitialize the mesh function for boundary domains in sub-domains.
+# Next, we initialize the mesh function for boundary domains in sub-domains.
 # We set markers allowing for tracking of changes in mesh before the mesh is deformed.
 # Often, you will find that these markers are saved into a dictionary.
 #
@@ -259,14 +261,21 @@ bottom.mark(boundaries, 4)
 # class 'PoroelasticProblem' from the 'Poroelastic' package.
 # This function allows for setting different dirichlet boundary conditions
 # depending on the subspace.
+# We can use the boundary conditions to compress or squeeze the unitsquare with every
+# time step. For that to work, we need to:
+# 1) Set boundary conditions decreasing the size of the unitsquare with every timestep
+# 2) Set  boundary condition, fixing the unitsquare so the damoin cannot just shift
 #
 # The boundaries are set with the first argument in correspondence to the subdomains
-# marked by 1 (Left) and 4 (Bottom) defined by the boundaries function.
+# marked by 1 (Left), 3 (Top) and 4 (Bottom) defined by the boundaries function.
 # The third argument represents the sub domain instance the condition is
 # defined for.
-# In our example the fourth argument functions as a keyword argument setting
-# the value for n in the vectorspace.
-# The boundary conditions are stored in a dictionary.
+# We fix the boundary of the left side of our unitsquare, by setting the boundary on a
+# vectorfunctionspace by setting the argument defining the boundary value as
+# vector and omitting the fourth argument defining the element in the vector.
+# The compression of the unitsquare is achieved by decreasing the boundary conditions
+# by 1e-3 with eacht step on the top and bottom right-hand-side corner.
+#
 # Optionally, a string specifying a DirichletBC method can be passed as an argument.
 # This allows for the usage of DirichletBC function defined methods provided
 # by the dolfin package.
@@ -283,9 +292,13 @@ bottom.mark(boundaries, 4)
 # Time conditions will then be saved in an additiona new list.
 #
 # Define Dirichlet boundary conditions
-zero = df.Constant(0.0)
-pprob.add_solid_dirichlet_condition(zero, boundaries, 1, n=0)
-pprob.add_solid_dirichlet_condition(zero, boundaries, 4, n=1)
+zero = df.Constant((0,0))
+decrease = df.Constant(1e-3)
+# Fix boundary on the left side in vectorspace so the unitsqaure cannot move
+pprob.add_solid_dirichlet_condition(zero, boundaries, 1)
+#Define decrease in size of right-side corners of unitsquare
+pprob.add_solid_dirichlet_condition(decrease, boundaries, 3, n=1)
+pprob.add_solid_dirichlet_condition(decrease, boundaries, 4, n=1)
 #
 # Eventually, we will have to store the data produced in files.
 # For that to work we will use a dolfin class supporting the output of meshes
@@ -320,8 +333,13 @@ def set_xdmf_parameters(f):
 #
 # Setting the number of compartments by the integer found for the key 'Parameter' ,
 # 'N' in the input file.cfg.
-#
 N = int(params.p['Parameter']['N'])
+#
+# --------------------------------------------------------------------------------------
+# Important note: To actually find the output data in the 'data directory' you need
+# to run the script in the directory a hierarchy up the data directory, so that the data
+# directory can actually be found.
+# --------------------------------------------------------------------------------------
 # f1 - list divergence stress
 # f2 - mass fluid
 # f3 - pressure
@@ -392,7 +410,7 @@ avg_error = []
 # dolfin class 'NonlinearVariationalProblem', a class representing a nonlinear
 # variational problem.
 # Besides the variational form, the unknown function has to be passed as parameter,
-# which in out example is represented by mf (fluid mass) or Us (divergence of solid).
+# which in our example is represented by mf (fluid mass) or Us (extended constitutive law).
 # The other parameters passed to specify boundary conditions and the Jacobiany
 # and the Jacobian are optional.
 # After setting the parameters of the 'NonlinearVariationalProblem' the 'choose_solver'
@@ -436,8 +454,8 @@ avg_error = []
 # During each iteration the latest calculated pressure function 'p' is assigned to
 # the function 'mf_'. For that, the dolfin function .assign() is used, allowing
 # to assign one function to another.
-# The variational problem for the solid, for the fluid and for the fluid_solid_coupling (defining 'p')
-# are initiated respectively.
+# The variational problem for the solid, for the fluid and for the fluid_solid_coupling
+# (defining 'p') are initiated respectively.
 # The error variable 'e' is then calculated by first substratingthe pressure variable
 # 'mf' assigned from the iteration step before from the current 'p[0]' .
 # The error 'eps' is in the next step evaluated by the square of the error "e"
@@ -475,14 +493,15 @@ avg_error = []
 #
 # The results will be written to the XDMFFiles created earlier, using the 'write_file'
 # function of the 'utils' module. This function itself will initiate the DOLFIN
-# provided 'set_log_level' function, deciding which messages routed through the logging
-# system will be printed to the console. Calling the function 'set_log_level', we can
-# specify the log level of the messages printed by setting the value for the Optionally# integer argument.
-# In our example it is set to 40, meaning with the default level being 20, only messages
-# higher than or equal to the set log level will be printed.
-# next, the 'write_checkpoint' allows for saving a function to an XDMFFile for checkpointing,
-# taking in the parameters of the function to save, the name (label) of the function used,
-# and the time step.
+# provided 'set_log_level' function, deciding which messages routed through the
+# logging system will be printed to the console. Calling the function 'set_log_level',
+# we can specify the log level of the messages printed by setting the value for the
+# optional integer argument.
+# In our example it is set to 40, meaning with the default level being 20, only
+# messages higher than or equal to the set log level will be printed.
+# next, the 'write_checkpoint' allows for saving a function to an XDMFFile for
+# checkpointing, taking in the parameters of the function to save, the name (label)
+# of the function used, and the time step.
 # Last, the log level is increased by setting the integer to 30, allowing for
 # for messages to be printed.
 #

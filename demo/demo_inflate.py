@@ -63,7 +63,7 @@ To view the output Paraview 5.x is required.
 #
 # such that F*S is given by
 #
-#   $ Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
+#   $ \Psi^{s}_{cons} =  \Psi^{s} + \lambda(J-1- \sum_{i}^{\N}\frac{ m_{i}}{\rho_{f}}$
 #
 # with L ... Lagrange multiplier enforcing volume constraints
 # with m ... sum fluid mass increase over all compartments
@@ -94,7 +94,7 @@ To view the output Paraview 5.x is required.
 # (II) The 'fluid-solid-coupling' governing the compartmental fluid pressure
 # is repesented by the following equation
 #
-#   $ p_i = (Del Psi_S)/(Del J self.phi_{f,i})) - L
+#   $ p_{i} = \frac{\partial \Psi^{s}}{\partial (J \phi_{f,i})} - \lambda $
 #
 # which is implemented as a variational form by solving
 #
@@ -245,7 +245,7 @@ right = Right()
 top = Top()
 bottom = Bottom()
 #
-# Next, we nitialize the mesh function for boundary domains in sub-domains.
+# Next, we initialize the mesh function for boundary domains in sub-domains.
 # We set markers allowing for tracking of changes in mesh before the mesh is deformed.
 # Often, you will find that these markers are saved into a dictionary.
 #
@@ -265,7 +265,10 @@ bottom.mark(boundaries, 4)
 # The third argument represents the sub domain instance the condition is
 # defined for.
 # In our example the fourth argument functions as a keyword argument setting
-# the value for n in the vectorspace.
+# the value for n in the vectorspace. If intending to set a boundary for a complete vectorspace,
+# one would pass the argument defining the boundary as vector and not require
+# to define the single element in the vectorspace by 'n'. 'n' would not be passed
+# as argument.
 # The boundary conditions are stored in a dictionary.
 # Optionally, a string specifying a DirichletBC method can be passed as an argument.
 # This allows for the usage of DirichletBC function defined methods provided
@@ -322,10 +325,16 @@ def set_xdmf_parameters(f):
 # 'N' in the input file.cfg.
 #
 N = int(params.p['Parameter']['N'])
+#
 # f1 - list divergence stress
 # f2 - mass fluid
 # f3 - pressure
  # f4 - list scalar of divergence change of deformation solid
+ # --------------------------------------------------------------------------------------
+ # Important note: To actually find the output data in the 'data directory' you need
+ # to run the script in the directory a hierarchy up the data directory, so that the data
+ # directory can actually be found.
+ # --------------------------------------------------------------------------------------
 f1 = [df.XDMFFile(comm, '../data/{}/uf{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f2 = df.XDMFFile(comm, '../data/{}/mf.xdmf'.format(data_dir))
 f3 = [df.XDMFFile(comm, '../data/{}/p{}.xdmf'.format(data_dir, i)) for i in range(N)]
@@ -392,7 +401,7 @@ avg_error = []
 # dolfin class 'NonlinearVariationalProblem', a class representing a nonlinear
 # variational problem.
 # Besides the variational form, the unknown function has to be passed as parameter,
-# which in out example is represented by mf (fluid mass) or Us (divergence of solid).
+# which in our example is represented by mf (fluid mass) or Us (extended constitutive law).
 # The other parameters passed to specify boundary conditions and the Jacobiany
 # and the Jacobian are optional.
 # After setting the parameters of the 'NonlinearVariationalProblem' the 'choose_solver'
@@ -436,8 +445,8 @@ avg_error = []
 # During each iteration the latest calculated pressure function 'p' is assigned to
 # the function 'mf_'. For that, the dolfin function .assign() is used, allowing
 # to assign one function to another.
-# The variational problem for the solid, for the fluid and for the fluid_solid_coupling (defining 'p')
-# are initiated respectively.
+# The variational problem for the solid, for the fluid and for the fluid_solid_coupling
+# (defining 'p') are initiated respectively.
 # The error variable 'e' is then calculated by first substratingthe pressure variable
 # 'mf' assigned from the iteration step before from the current 'p[0]' .
 # The error 'eps' is in the next step evaluated by the square of the error "e"
@@ -475,14 +484,15 @@ avg_error = []
 #
 # The results will be written to the XDMFFiles created earlier, using the 'write_file'
 # function of the 'utils' module. This function itself will initiate the DOLFIN
-# provided 'set_log_level' function, deciding which messages routed through the logging
-# system will be printed to the console. Calling the function 'set_log_level', we can
-# specify the log level of the messages printed by setting the value for the Optionally# integer argument.
-# In our example it is set to 40, meaning with the default level being 20, only messages
-# higher than or equal to the set log level will be printed.
-# next, the 'write_checkpoint' allows for saving a function to an XDMFFile for checkpointing,
-# taking in the parameters of the function to save, the name (label) of the function used,
-# and the time step.
+# provided 'set_log_level' function, deciding which messages routed through the
+# logging system will be printed to the console. Calling the function 'set_log_level',
+# we can specify the log level of the messages printed by setting the value for the
+# optional integer argument.
+# In our example it is set to 40, meaning with the default level being 20, only
+# messages higher than or equal to the set log level will be printed.
+# next, the 'write_checkpoint' allows for saving a function to an XDMFFile for
+# checkpointing, taking in the parameters of the function to save, the name (label)
+# of the function used, and the time step.
 # Last, the log level is increased by setting the integer to 30, allowing for
 # for messages to be printed.
 #
