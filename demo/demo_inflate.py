@@ -192,7 +192,8 @@ print("Number of cells: {}".format(mesh.num_cells()))
 #
 pprob = poro.PoroelasticProblem(mesh, params.p)
 #
-# Next, we want to divide our left ventricle, into 4 main subdomains, having there
+# Next, we want to divide our Cube we will parse as configuration,
+# into 4 main subdomains, having their
 # individually set boundary conditions.
 # For that to work, we create classes for defining parts of the boundaries and
 # the interior of the domains.
@@ -247,7 +248,7 @@ right = Right()
 top = Top()
 bottom = Bottom()
 #
-# Next, we nitialize the mesh function for boundary domains in sub-domains.
+# Next, we initialize the mesh function for boundary domains in sub-domains.
 # We set markers allowing for tracking of changes in mesh before the mesh is deformed.
 # Often, you will find that these markers are saved into a dictionary.
 #
@@ -267,7 +268,10 @@ bottom.mark(boundaries, 4)
 # The third argument represents the sub domain instance the condition is
 # defined for.
 # In our example the fourth argument functions as a keyword argument setting
-# the value for n in the vectorspace.
+# the value for n in the vectorspace. If intending to set a boundary for a complete vectorspace,
+# one would pass the argument defining the boundary as vector and not require
+# to define the single element in the vectorspace by 'n'. 'n' would not be passed
+# as argument.
 # The boundary conditions are stored in a dictionary.
 # Optionally, a string specifying a DirichletBC method can be passed as an argument.
 # This allows for the usage of DirichletBC function defined methods provided
@@ -324,10 +328,16 @@ def set_xdmf_parameters(f):
 # 'N' in the input file.cfg.
 #
 N = int(params.p['Parameter']['N'])
+#
 # f1 - list divergence stress
 # f2 - mass fluid
 # f3 - pressure
  # f4 - list scalar of divergence change of deformation solid
+ # --------------------------------------------------------------------------------------
+ # Important note: To actually find the output data in the 'data directory' you need
+ # to run the script in the directory a hierarchy up the data directory, so that the data
+ # directory can actually be found.
+ # --------------------------------------------------------------------------------------
 f1 = [df.XDMFFile(comm, '../data/{}/uf{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f2 = df.XDMFFile(comm, '../data/{}/mf.xdmf'.format(data_dir))
 f3 = [df.XDMFFile(comm, '../data/{}/p{}.xdmf'.format(data_dir, i)) for i in range(N)]
