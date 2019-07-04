@@ -190,7 +190,7 @@ print("Simulation ID {}".format(data_dir))
 #
 pprob = poro.PoroelasticProblem(mesh, params.p)
 #
-# Next we divide our left ventricle into 4 main subdomains, having there
+# Next we divide our left ventricle into 4 main subdomains, having their
 # individually set boundary conditions.
 # For that to work, we create classes for defining parts of the boundaries and
 # the interior of the domains.
