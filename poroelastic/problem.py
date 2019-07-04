@@ -257,13 +257,13 @@ class PoroelasticProblem(object):
     def fluid_solid_coupling(self):
         TOL = self.TOL()
         dU, L = self.Us.split(True)
-        p = TrialFunction(self.FS_F)
-        q = TestFunction(self.FS_F)
         if self.N == 1:
             FS = self.FS_M
         else:
             FS = self.FS_M.sub(0).collapse()
         for i in range(self.N):
+            p = TrialFunction(self.FS_F)
+            q = TestFunction(self.FS_F)
             a = p*q*dx
             Ll = (tr(diff(self.Psi, self.F) * self.F.T))/self.phif[i]*q*dx - L*q*dx
             A = assemble(a)
@@ -376,7 +376,7 @@ class PoroelasticProblem(object):
         sol.parameters['newton_solver']['linear_solver'] = 'minres'
         sol.parameters['newton_solver']['preconditioner'] = 'hypre_amg'
         sol.parameters['newton_solver']['absolute_tolerance'] = TOL
-        sol.parameters['newton_solver']['relative_tolerance'] = TOL
+        sol.parameters['newton_solver']['relative_tolerance'] = TOL*1e3
         sol.parameters['newton_solver']['maximum_iterations'] = 1000
         return sol
 
