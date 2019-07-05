@@ -337,14 +337,14 @@ N = int(params.p['Parameter']['N'])
  # directory can actually be found.
  # --------------------------------------------------------------------------------------
 f1 = [df.XDMFFile(comm, '../data/{}/uf{}.xdmf'.format(data_dir, i)) for i in range(N)]
-f2 = df.XDMFFile(comm, '../data/{}/mf.xdmf'.format(data_dir))
+f2 = [df.XDMFFile(comm, '../data/{}/mf{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f3 = [df.XDMFFile(comm, '../data/{}/p{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f4 = df.XDMFFile(comm, '../data/{}/du.xdmf'.format(data_dir))
 #
 # Initialize 'set_xdmf_parameters' for XDMFFiles to be created
 #
 [set_xdmf_parameters(f1[i]) for i in range(N)]
-set_xdmf_parameters(f2)
+[set_xdmf_parameters(f2[i]) for i in range(N)]
 [set_xdmf_parameters(f3[i]) for i in range(N)]
 set_xdmf_parameters(f4)
 #
@@ -519,20 +519,21 @@ for Mf, Uf, p, Us, t in pprob.solve():
     dU, L = Us.split(True)
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
-    poro.write_file(f2, Mf, 'mf', t)
+    [poro.write_file(f2[i], Mf[i], 'mf', t) for i in range(N)]
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, dU, 'du', t)
 
+    Mf_sum = sum([Mf[i] for i in range(N)])
     domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
-    sum_fluid_mass += df.assemble(Mf*dx)
+    sum_fluid_mass += df.assemble(Mf_sum*dx)
     theor_fluid_mass += qi*rho*dt
     theor_sol = theor_fluid_mass*domain_area
     sum_disp += df.assemble(dU[0]*ds(4))
-    avg_error.append(np.sqrt(((df.assemble(Mf*dx)-theor_sol)/theor_sol)**2))
-    print(theor_sol, df.assemble(Mf*dx))
+    avg_error.append(np.sqrt(((df.assemble(Mf_sum*dx)-theor_sol)/theor_sol)**2))
+    print(theor_sol, df.assemble(Mf_sum*dx))
 
 [f1[i].close() for i in range(N)]
-f2.close()
+[f2[i].close() for i in range(N)]
 [f3[i].close() for i in range(N)]
 f4.close()
 #

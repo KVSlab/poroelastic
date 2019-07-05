@@ -352,7 +352,10 @@ class PoroelasticProblem(object):
             # Calculate fluid vector
             self.calculate_flow_vector()
 
-            yield self.mf, self.Uf, self.p, self.Us, t
+            # transform mf into list
+            mf_list = [self.mf.sub(i) for i in range(self.N)]
+
+            yield mf_list, self.Uf, self.p, self.Us, t
 
             self.move_mesh()
 
