@@ -1,4 +1,6 @@
 from poroelastic.param_parser import *
+import poroelastic as poro
+import dolfin as df
 import numpy as np
 import pytest
 import os
@@ -49,21 +51,83 @@ def test_configure_file():
     return loc_config
     #assert config.read() == CONFTEST
 # better use tempfile so it is not user set directory?
-
 def test_get_params(test_configure_file):
-    """
-    Creating a dictionary of paramters by reading the configuration file
-    """
-    #section = ()
-
     configure = configparser.ConfigParser()
     configure.read('/tmp/config.cfg')
     configure.sections()
+    subdictionaries = []
+    #Check for completeness of sectionsxs
     for section_name in configure.sections():
         #section = configure[section_name]
-        section = (section_name)
-    #ParamParser.get_params('/tmp/config.cfg')
+        subdictionaries.append(section_name)
+    #figure out if you can make an assert?
+    #params = poro.ParamParser()
+    #print(p)
+    for candidate in subdictionaries:
+        print('{:<12}: {}'.format(candidate, configure.has_section(candidate)))
+    #testing whether expected keys are present
+    #N_key = 'N' in configure['Parameter']
+    #for key in configure['Parameter']:
+        #if key in configure['Parameter'] == True:
+    #testing whether expected keys are present
+    #N_key = 'N' in configure['Parameter']
+    #for key in configure['Parameter']:
+        #if key in configure['Parameter']:
+            #print('{:<12}: {}'.format(key, configure.has_option(candidate,key)))
+        #else:
+            #print('{} is not in \'Parameters\''.format(key))
 
+def test_get_sim_section(test_configure_file):
+    configure = configparser.ConfigParser()
+    configure.read('/tmp/config.cfg')
+    #assert that all values expected for the keys in subdictionary 'Simulation' are true
+    assert configure['Simulation']['sim'] == 'sanity_check'
+    assert configure['Simulation']['solver'] == 'direct'
+    assert configure['Simulation']['debug'] == '0'
 
+def test_get_units_section(test_configure_file):
+    configure = configparser.ConfigParser()
+    configure.read('/tmp/config.cfg')
+    #assert that all values expected for the keys in subdictionary 'Units' are true
+    assert configure['Units']['s'] == '1'
+    assert configure['Units']['m'] == '1'
+    assert configure['Units']['Pa'] == '1'
+    assert configure['Units']['mmHg'] == '133.322365 * Pa'
+    assert configure['Units']['kPa'] == '1000 * Pa'
+    assert configure['Units']['kg'] == '1 * Pa*m*s**2'
 
-    #assert section == p
+def test_get_param_section(test_configure_file):
+    configure = configparser.ConfigParser()
+    configure.read('/tmp/config.cfg')
+    #assert that all values expected for the keys in subdictionary 'Parameter' are true
+    assert configure['Parameter']['N'] == '1'
+    assert configure['Parameter']['TOL'] == '1e-7'
+    assert configure['Parameter']['rho'] == '1000 * kg/m**3'
+    assert configure['Parameter']['K'] == '1e-7 * m**2/Pa/s'
+    assert configure['Parameter']['phi'] =='0.3'
+    assert configure['Parameter']['beta'] == '0.2'
+    assert configure['Parameter']['qi'] == '10.0 * m**3/s'
+    assert configure['Parameter']['qo'] == '0.0 * m**3/s'
+    assert configure['Parameter']['tf'] == '1.0 * s'
+    assert configure['Parameter']['dt'] == '5e-2 * s'
+    assert configure['Parameter']['theta'] == '0.5'
+
+def test_get_material_section(test_configure_file):
+    configure = configparser.ConfigParser()
+    configure.read('/tmp/config.cfg')
+    #assert that all values expected for the keys in subdictionary 'Material' are true
+    assert isinstance(configure['Material']['material'], str)
+    assert configure['Material']['material'] == '"isotropic exponential form"'
+    assert configure['Material']['a'] == '1.0'
+    assert configure['Material']['D1'] == '2.0'
+    assert configure['Material']['D2'] == '0.2'
+    assert configure['Material']['D3'] == '2.0'
+    assert configure['Material']['Qi1'] == '1.0'
+    assert configure['Material']['Qi2'] == '0.5'
+    assert configure['Material']['Qi3'] == '1.0'
+
+def test_write_config():
+    pass
+
+def test_add_data():
+    pass
