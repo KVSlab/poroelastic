@@ -8,49 +8,88 @@ from poroelastic import *
 import numpy as np
 import configparser
 
-def isnear(a, b, tol=1.e-11, reltol=1.e-10):
-    """
-    Check near-equality between two floats to a certain tolerance. Name
-    contains 'is' to differentiate it from DOLFIN near()-function.
-    Arguments
-    ---------
-    a : float
-        First number
-    b : float
-        Second number
-    tol : float
-        Tolerance for near-equality
-    reltol : float
-        Relative tolerance for near-equality
-    Returns
-    -------
-    return : boolean
-        True if a and b are near-equal
-    """
-    # Neglect relative error if numbers are close to zero
-    if np.abs(b) > 1.e-10:
-        return np.abs(a-b) < tol or np.abs(a/b-1) < reltol
-    else:
-        return np.abs(a-b) < tol
-
-
 
 def test_init(isotropicexponentialformmaterial, param):
     a, D1, D2, D3, Qi1, Qi2, Qi3 = param
     assert isotropicexponentialformmaterial.a.values()[0] == param["a"]
-    #assert(isnear(isotropicexponentialformmaterial.a,a))
+    assert isotropicexponentialformmaterial.D1.values()[0] == param["D1"]
+    assert isotropicexponentialformmaterial.D2.values()[0] == param["D2"]
+    assert isotropicexponentialformmaterial.D3.values()[0] == param["D3"]
+    assert isotropicexponentialformmaterial.Qi1.values()[0] == param["Qi1"]
+    assert isotropicexponentialformmaterial.Qi2.values()[0] == param["Qi2"]
+    assert isotropicexponentialformmaterial.Qi3.values()[0] == param["Qi3"]
 
-"""
-def test_init(self):
-    #a = param
-    att = IsotropicExponentialFormMaterial(self.a)
-    assert att == 1.0
-def test_no_value():
-    with pytest.raises(Exception) as e_info:
-        obj = IsotropicExponentialFormMaterial()
-#def test_test():
-    #print("I am a test to test the test.")
-"""
+def test_init_lin(linearporoelasticmaterial, param_linearporo):
+    kappa0, kappa1, kappa2, K, M, b = param
+    assert linearporoelasticmaterial.kappa0.values()[0] == param_linearporo["kappa0"]
+
+
+
+@pytest.fixture
+def test_param_file():
+    loc_config = '/tmp/param.cfg'
+    config = open(loc_config, 'w+')
+    config.write(CONFTEST)
+    config.close()
+    return loc_config
+    #assert config.read() == CONFTEST
+# better use tempfile so it is not user set directory?
+
+@pytest.fixture
+def param(test_param_file):
+    configure = configparser.ConfigParser()
+    configure.read('/tmp/param.cfg')
+    param = {}
+
+    param["a"] = configure.getfloat('Material','a')
+    param["D1"] = configure.getfloat('Material','D1')
+    param["D2"] = configure.getfloat('Material','D2')
+    param["D3"] = configure.getfloat('Material','D3')
+    param["Qi1"] = configure.getfloat('Material','Qi1')
+    param["Qi2"] = configure.getfloat('Material','Qi2')
+    param["Qi3"] = configure.getfloat('Material','Qi3')
+
+    return param
+
+
+@pytest.fixture
+def isotropicexponentialformmaterial(param):
+    #a, D1, D2, D3, Qi1, Qi2, Qi3 = param
+    #assign value from 'real' class
+    isotropicexponentialformmaterial = IsotropicExponentialFormMaterial(param)
+
+    return isotropicexponentialformmaterial
+
+
+@pytest.fixture
+def test_param_file_linearporoelastic():
+    loc_config = '/tmp/param_linearporo.cfg'
+    config = open(loc_config, 'w+')
+    config.write(CONFTEST_linear)
+    config.close()
+    return loc_config
+    #assert config.read() == CONFTEST
+# better use tempfile so it is not user set directory?
+
+@pytest.fixture
+def param_linearporo(test_param_file_linearporoelastic):
+    configure = configparser.ConfigParser()
+    configure.read('/tmp/param_linearporo.cfg')
+    param_linearporo = {}
+
+    param_linearporo["kappa0"] = configure.get('Material','kappa0')
+    param_linearporo["kappa1"] = configure.get('Material','kappa1')
+    param_linearporo["kappa2"] = configure.get('Material','kappa2')
+    param_linearporo["K"] = configure.get('Material','K')
+    param_linearporo["M"] = configure.get('Material','M')
+    param_linearporo["b"] = configure.get('Material','b')
+
+    return param_linearporo
+
+@pytest.fixture
+def linearporoelasticmaterial(param):
+    linearporoelasticmaterial = LinearPoroelasticMaterial(param)
+    return linearporoelasticmaterial
 
 CONFTEST = """\n[Simulation]
 sim = sanity_check
@@ -88,50 +127,12 @@ Qi1 = 1.0
 Qi2 = 0.5
 Qi3 = 1.0"""
 
-@pytest.fixture
-def test_param_file():
-    loc_config = '/tmp/param.cfg'
-    config = open(loc_config, 'w+')
-    config.write(CONFTEST)
-    config.close()
-    return loc_config
-    #assert config.read() == CONFTEST
-# better use tempfile so it is not user set directory?
 
-@pytest.fixture
-def param(test_param_file):
-    configure = configparser.ConfigParser()
-    configure.read('/tmp/param.cfg')
-    param = {}
-    #param["a"] dict
-    # read in parameters to use later
-    #param["a"]= configure['Material']['a']
-    '''
-    a = configure.getfloat('Material','a')
-    D1 = configure.getfloat('Material','D1')
-    D2 = configure.getfloat('Material','D2')
-    D3 = configure.getfloat('Material','D3')
-    Qi1 = configure.getfloat('Material','Qi1')
-    Qi2 = configure.getfloat('Material','Qi2')
-    Qi3 = configure.getfloat('Material','Qi3')
-
-    return a, D1, D2, D3, Qi1, Qi2, Qi3
-'''
-    param["a"] = configure.getfloat('Material','a')
-    param["D1"] = configure.getfloat('Material','D1')
-    param["D2"] = configure.getfloat('Material','D2')
-    param["D3"] = configure.getfloat('Material','D3')
-    param["Qi1"] = configure.getfloat('Material','Qi1')
-    param["Qi2"] = configure.getfloat('Material','Qi2')
-    param["Qi3"] = configure.getfloat('Material','Qi3')
-
-    return param
-
-
-@pytest.fixture
-def isotropicexponentialformmaterial(param):
-    a, D1, D2, D3, Qi1, Qi2, Qi3 = param
-    #assign value from 'real' class
-    isotropicexponentialformmaterial = IsotropicExponentialFormMaterial(param)
-
-    return isotropicexponentialformmaterial
+CONFTEST_linear = """\n[Material]
+material = "linear poroelastic"
+kappa0 = 0.01 * Pa
+kappa1 = 2e3 * Pa
+kappa2 = 33 * Pa
+K = 2.2e5 * Pa
+M = 2.18e5 * Pa
+b = 1 """
