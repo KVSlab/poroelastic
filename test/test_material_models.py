@@ -36,9 +36,8 @@ def isnear(a, b, tol=1.e-11, reltol=1.e-10):
 
 
 def test_init(isotropicexponentialformmaterial, param):
-
     a, D1, D2, D3, Qi1, Qi2, Qi3 = param
-    #assert(near(isotropicexponentialformmaterial.a, a))
+    assert isotropicexponentialformmaterial.a.values()[0] == param["a"]
     #assert(isnear(isotropicexponentialformmaterial.a,a))
 
 """
@@ -131,8 +130,8 @@ def param(test_param_file):
 
 @pytest.fixture
 def isotropicexponentialformmaterial(param):
-    print(type(param))
     a, D1, D2, D3, Qi1, Qi2, Qi3 = param
     #assign value from 'real' class
     isotropicexponentialformmaterial = IsotropicExponentialFormMaterial(param)
+
     return isotropicexponentialformmaterial
