@@ -19,12 +19,6 @@ def test_init(isotropicexponentialformmaterial, param):
     assert isotropicexponentialformmaterial.Qi2.values()[0] == param["Qi2"]
     assert isotropicexponentialformmaterial.Qi3.values()[0] == param["Qi3"]
 
-def test_init_lin(linearporoelasticmaterial, param_linearporo):
-    kappa0, kappa1, kappa2, K, M, b = param
-    assert linearporoelasticmaterial.kappa0.values()[0] == param_linearporo["kappa0"]
-
-
-
 @pytest.fixture
 def test_param_file():
     loc_config = '/tmp/param.cfg'
@@ -61,36 +55,6 @@ def isotropicexponentialformmaterial(param):
     return isotropicexponentialformmaterial
 
 
-@pytest.fixture
-def test_param_file_linearporoelastic():
-    loc_config = '/tmp/param_linearporo.cfg'
-    config = open(loc_config, 'w+')
-    config.write(CONFTEST_linear)
-    config.close()
-    return loc_config
-    #assert config.read() == CONFTEST
-# better use tempfile so it is not user set directory?
-
-@pytest.fixture
-def param_linearporo(test_param_file_linearporoelastic):
-    configure = configparser.ConfigParser()
-    configure.read('/tmp/param_linearporo.cfg')
-    param_linearporo = {}
-
-    param_linearporo["kappa0"] = configure.get('Material','kappa0')
-    param_linearporo["kappa1"] = configure.get('Material','kappa1')
-    param_linearporo["kappa2"] = configure.get('Material','kappa2')
-    param_linearporo["K"] = configure.get('Material','K')
-    param_linearporo["M"] = configure.get('Material','M')
-    param_linearporo["b"] = configure.get('Material','b')
-
-    return param_linearporo
-
-@pytest.fixture
-def linearporoelasticmaterial(param):
-    linearporoelasticmaterial = LinearPoroelasticMaterial(param)
-    return linearporoelasticmaterial
-
 CONFTEST = """\n[Simulation]
 sim = sanity_check
 solver = direct
@@ -126,13 +90,3 @@ D3 = 2.0
 Qi1 = 1.0
 Qi2 = 0.5
 Qi3 = 1.0"""
-
-
-CONFTEST_linear = """\n[Material]
-material = "linear poroelastic"
-kappa0 = 0.01 * Pa
-kappa1 = 2e3 * Pa
-kappa2 = 33 * Pa
-K = 2.2e5 * Pa
-M = 2.18e5 * Pa
-b = 1 """
