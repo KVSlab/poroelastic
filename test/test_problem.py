@@ -1,34 +1,33 @@
-from dolfin import *
+import dolfin as df
 from ufl import grad as ufl_grad
 import sys
 import numpy as np
 import pytest
-from poroelastic.material_models import *
 from poroelastic import *
-import poroelastic.utils as utils
-import fenics as fenics
+#import poroelastic.utils as utils
+#import fenics as fenics
 import configparser
 
 
 
 def test_init(poroelasticproblem, params):
     ''' Test correct assignment of initial values. Test correct type of functions. '''
-    N = params
-    assert poroelasticproblem.N.values()[0] == params["N"]
-    assert(type(poroelasticproblem.Us) == fn.Function)
-    assert(type(poroelasticproblem.Us_n) == fn.Function)
-    assert(type(poroelasticproblem.mf) == fn.Function)
-    assert(type(poroelasticproblem.mf_n) == fn.Function)
+    #N = params
+    assert(type(poroelasticproblem.N)) == type(params["N"])
+    assert(type(poroelasticproblem.Us)) == dolfin.Function
+    assert(type(poroelasticproblem.Us_n)) == dolfin.Function
+    assert(type(poroelasticproblem.mf)) == dolfin.Function
+    assert(type(poroelasticproblem.mf_n)) == dolfin.Function
     '''
 def test_sum_fluid_mass(poroelasticproblem, params):
-    ''' Calculate sum fluid mass and compare to original function'''
+    Calculate sum fluid mass and compare to original function
 
     if poroelasticproblem.N.values()[0] == 1:
         test_sum_fluid_mass =
-    ''' 
+    '''
 @pytest.fixture
 def test_param_file():
-    loc_config = '/tmp/params.cfg'
+    loc_config = '/tmp/params_prob.cfg'
     config = open(loc_config, 'w+')
     config.write(CONFTEST)
     config.close()
@@ -37,21 +36,21 @@ def test_param_file():
 # better use tempfile so it is not user set directory?
 
 @pytest.fixture
-def param(test_param_file):
+def params(test_param_file):
     configure = configparser.ConfigParser()
-    configure.read('/tmp/params.cfg')
+    configure.read('/tmp/params_prob.cfg')
     params = {}
 
     params["N"] = configure.getint('Parameter','N')
 
     return params
 
-
 @pytest.fixture
-def poroelasticproblem(param):
-    poroelasticproblem = PoroelasticProblem(params)
+def poroelasticproblem(params):
+    nx = 10
+    mesh = df.UnitSquareMesh(nx, nx)
+    poroelasticproblem = PoroelasticProblem(params, mesh)
     return poroelasticproblem
-
 
 CONFTEST = """\n[Simulation]
 sim = sanity_check
