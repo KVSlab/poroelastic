@@ -11,7 +11,8 @@ import numpy as np
 import configparser
 
 def test_init(linearporoelasticmaterial, param_linearporo):
-    kappa0, kappa1, kappa2, K, M, b = param
+    print(linearporoelasticmaterial.kappa0.values()[0])
+    print(param_linearporo["kappa0"])
     assert linearporoelasticmaterial.kappa0.values()[0] == param_linearporo["kappa0"]
 
 @pytest.fixture
@@ -27,6 +28,8 @@ def test_param_file_linearporoelastic():
 @pytest.fixture
 def param_linearporo(test_param_file_linearporoelastic):
     configure = configparser.ConfigParser()
+    #fix default setting of optionxform() function to return lower case
+    configure.optionxform = str
     configure.read('/tmp/param_linearporo.cfg')
     section = 'Material'
     options = configure.items(section)
@@ -37,7 +40,6 @@ def param_linearporo(test_param_file_linearporoelastic):
             param_linearporo[key] = value
         else:
             param_linearporo[key] = value
-    print(param_linearporo)
     return param_linearporo
 
         #print(key)
