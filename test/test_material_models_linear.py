@@ -11,12 +11,14 @@ import numpy as np
 import configparser
 
 def test_init(linearporoelasticmaterial, param_linearporo):
-    print(linearporoelasticmaterial.kappa0.values()[0])
-    print(type(param_linearporo["kappa0"]))
-    assert linearporoelasticmaterial.kappa0.values()[0] == param_linearporo["kappa0"]
-    assert linearporoelasticmaterial.kappa1.values()[0] == param_linearporo["kappa1"]
-    assert linearporoelasticmaterial.kappa2.values()[0] == param_linearporo["kappa2"]
-    print("done!")
+    section_U, section_material = param_linearporo
+
+    assert linearporoelasticmaterial.kappa0.values()[0] == section_material["kappa0"]
+    assert linearporoelasticmaterial.kappa1.values()[0] == section_material["kappa1"]
+    assert linearporoelasticmaterial.kappa2.values()[0] == section_material["kappa2"]
+    assert linearporoelasticmaterial.K.values()[0] == section_material["K"]
+    assert linearporoelasticmaterial.M.values()[0] == section_material["M"]
+    assert linearporoelasticmaterial.b.values()[0] == section_material["b"]
 
 @pytest.fixture
 def test_param_file_linearporoelastic():
@@ -25,60 +27,60 @@ def test_param_file_linearporoelastic():
     config.write(CONFTEST_linear)
     config.close()
     return loc_config_
-    #assert config.read() == CONFTEST
-# better use tempfile so it is not user set directory?
+
 
 @pytest.fixture
 def param_linearporo(test_param_file_linearporoelastic):
+    configure = configparser.SafeConfigParser()
+    #fix default setting of optionxform() function to return lower case
+    configure.optionxform = str
+    configure.read('/tmp/param_linearporo.cfg')
     configure = configparser.ConfigParser()
     #fix default setting of optionxform() function to return lower case
     configure.optionxform = str
     configure.read('/tmp/param_linearporo.cfg')
-    section = 'Material'
-    options = configure.items(section)
-    param_linearporo = {}
+
+    #get unit section
+    section_U = 'Units'
+    options = configure.items(section_U)
+    units = {}
     for key, value in options:
-        if '*' in value:
-            value = re.sub(r" * .*", "", value, flags=re.I)
-            param_linearporo[key] = value
+        value = eval(value, units)
+        units[key] = value
+    #get material section and check with unit section units, strip accordingly
+    section = 'Material'
+    options_ = configure.items(section)
+    section_material = {}
+    for key, value in options_:
+        if "\n" in value:
+            #check for new line and strip leading/trailing characters, split accordingly and evalute units
+            value = list(filter(None, [x.strip() for x in value.splitlines()]))
+            value = [eval(val, units) for val in value]
+
         else:
-            param_linearporo[key] = value
-    print(param_linearporo["material"])
-    for k, v in param_linearporo.items():
-        #if all((x.isalpha() for x in v) or (x.isspace() for x in v) or (re.match(r'"\[.+\]"', v))):
-        if re.findall(r'"(.*?)"',v):
-            param_linearporo[k] = v
-            print("I got the first done!")
-        else:
-            param_linearporo[k] = float(v)
-    print(type(param_linearporo["kappa0"]))
-    print(param_linearporo)
-    return param_linearporo
+            value = eval(value,units)
+        section_material[key] = value
 
-#def param_float(param_linearporo):
+    return section_U, section_material
 
-
-
-        #param_linearporo[key] = value
-'''
-    param_linearporo["kappa0"] = configure.getfloat('Material','kappa0')
-    param_linearporo["kappa1"] = configure.getfloat('kappa1')
-    param_linearporo["kappa2"] = configure.getfloat('kappa2')
-    param_linearporo["K"] = configure.getfloat('K')
-    param_linearporo["M"] = configure.getfloat('M')
-    param_linearporo["b"] = configure.getfloat('b')
-'''
-    #return param_linearporo
 
 @pytest.fixture
 def linearporoelasticmaterial(param_linearporo):
-    linearporoelasticmaterial = LinearPoroelasticMaterial(param_linearporo)
+    #split answer from function
+    section_U, section_material = param_linearporo
+    linearporoelasticmaterial = LinearPoroelasticMaterial(section_material)
     return linearporoelasticmaterial
 
 
 
-
-CONFTEST_linear = """\n[Material]
+CONFTEST_linear = """\n[Units]
+s = 1
+m = 1
+Pa = 1
+mmHg = 133.322365 * Pa
+kPa = 1000 * Pa
+kg = 1 * Pa*m*s**2
+[Material]
 material = "linear poroelastic"
 kappa0 = 0.01 * Pa
 kappa1 = 2e3 * Pa
