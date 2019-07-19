@@ -10,10 +10,11 @@ import configparser
 
 
 
-def test_init(poroelasticproblem, params):
+def test_init(poroelasticproblem, params, mesh):
     ''' Test correct assignment of initial values. Test correct type of functions. '''
-    #N = params
-    assert(type(poroelasticproblem.N)) == type(params["N"])
+
+    assert (poroelasticproblem.N) == section_parameter['Parameter']['N']
+    print('1')
     assert(type(poroelasticproblem.Us)) == dolfin.Function
     assert(type(poroelasticproblem.Us_n)) == dolfin.Function
     assert(type(poroelasticproblem.mf)) == dolfin.Function
@@ -38,18 +39,36 @@ def test_param_file():
 @pytest.fixture
 def params(test_param_file):
     configure = configparser.ConfigParser()
+    configure.optionxform = str
     configure.read('/tmp/params_prob.cfg')
-    params = {}
+    section_U = 'Units'
+    options = configure.items(section_U)
+    units = {}
+    for key, value in options:
+        value = eval(value, units)
+        units[key] = value
+    #get material section and check with unit section units, strip accordingly
+    section = 'Parameter'
+    options_ = configure.items(section)
+    section_parameter = {}
+    for key, value in options_:
+        if "\n" in value:
+            #check for new line and strip leading/trailing characters, split accordingly and evalute units
+            value = list(filter(None, [x.strip() for x in value.splitlines()]))
+            value = [eval(val, units) for val in value]
 
-    params["N"] = configure.getint('Parameter','N')
+        else:
+            value = eval(value,units)
+        section_parameter[key] = value
 
-    return params
+    return units, section_parameter
 
 @pytest.fixture
 def poroelasticproblem(params):
+    section_U, section_parameter = params
     nx = 10
     mesh = df.UnitSquareMesh(nx, nx)
-    poroelasticproblem = PoroelasticProblem(params, mesh)
+    poroelasticproblem = PoroelasticProblem(mesh, section_parameter)
     return poroelasticproblem
 
 CONFTEST = """\n[Simulation]
