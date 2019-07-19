@@ -31,10 +31,6 @@ def test_param_file_linearporoelastic():
 
 @pytest.fixture
 def param_linearporo(test_param_file_linearporoelastic):
-    configure = configparser.SafeConfigParser()
-    #fix default setting of optionxform() function to return lower case
-    configure.optionxform = str
-    configure.read('/tmp/param_linearporo.cfg')
     configure = configparser.ConfigParser()
     #fix default setting of optionxform() function to return lower case
     configure.optionxform = str
