@@ -12,8 +12,11 @@ import configparser
 
 def test_init(linearporoelasticmaterial, param_linearporo):
     print(linearporoelasticmaterial.kappa0.values()[0])
-    print(param_linearporo["kappa0"])
+    print(type(param_linearporo["kappa0"]))
     assert linearporoelasticmaterial.kappa0.values()[0] == param_linearporo["kappa0"]
+    assert linearporoelasticmaterial.kappa1.values()[0] == param_linearporo["kappa1"]
+    assert linearporoelasticmaterial.kappa2.values()[0] == param_linearporo["kappa2"]
+    print("done!")
 
 @pytest.fixture
 def test_param_file_linearporoelastic():
@@ -40,9 +43,22 @@ def param_linearporo(test_param_file_linearporoelastic):
             param_linearporo[key] = value
         else:
             param_linearporo[key] = value
+    print(param_linearporo["material"])
+    for k, v in param_linearporo.items():
+        #if all((x.isalpha() for x in v) or (x.isspace() for x in v) or (re.match(r'"\[.+\]"', v))):
+        if re.findall(r'"(.*?)"',v):
+            param_linearporo[k] = v
+            print("I got the first done!")
+        else:
+            param_linearporo[k] = float(v)
+    print(type(param_linearporo["kappa0"]))
+    print(param_linearporo)
     return param_linearporo
 
-        #print(key)
+#def param_float(param_linearporo):
+
+
+
         #param_linearporo[key] = value
 '''
     param_linearporo["kappa0"] = configure.getfloat('Material','kappa0')
