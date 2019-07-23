@@ -107,7 +107,7 @@ pprob.add_solid_dirichlet_condition(zero, boundaries, 4)
 # without setting condition , already 0 Neumann conditions
 # allows for pressure gradient
 half = df.Constant(1e-3)
-zero_scalar = df.Constant(0)
+zero_scalar = df.Constant(0.88)
 pprob.add_fluid_dirichlet_condition(half, boundaries, 1, time=False)
 #need to define right dirichlet boundary condition as string in .cfg file
 # currently set to :  "1e-6*(1-x[0])"
