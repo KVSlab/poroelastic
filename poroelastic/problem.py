@@ -269,13 +269,13 @@ class PoroelasticProblem(object):
             A = assemble(a)
             b = assemble(Ll)
             [bc.apply(A, b) for bc in self.pbcs]
-            p = Function(self.FS_F)
             solver = KrylovSolver('minres', 'hypre_amg')
             prm = solver.parameters
             prm.absolute_tolerance = TOL
             prm.relative_tolerance = TOL*1e3
             prm.maximum_iterations = 1000
-            solve(A, p.vector(), b)
+            p = Function(self.FS_F)
+            solver.solve(A, p.vector(), b)
             self.p[i].assign(project(p, FS))
 
 
