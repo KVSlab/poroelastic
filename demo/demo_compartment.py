@@ -523,12 +523,12 @@ for Mf, Uf, p, Us, t in pprob.solve():
     poro.write_file(f4, dU, 'du', t)
 
     domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
-    sum_fluid_mass += df.assemble(Mf*dx)
+    sum_fluid_mass += df.assemble(sum([Mf[i] for i in range(N)])*dx)
     theor_fluid_mass += qi*rho*dt
     theor_sol = theor_fluid_mass*domain_area
     sum_disp += df.assemble(dU[0]*ds(4))
-    avg_error.append(np.sqrt(((df.assemble(Mf*dx)-theor_sol)/theor_sol)**2))
-    print(theor_sol, df.assemble(Mf*dx))
+    avg_error.append(np.sqrt(((df.assemble(sum([Mf[i] for i in range(N)])*dx)-theor_sol)/theor_sol)**2))
+    print(theor_sol, df.assemble(sum([Mf[i] for i in range(N)])*dx))
 
 [f1[i].close() for i in range(N)]
 [f2[i].close() for i in range(N)]
