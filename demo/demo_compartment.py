@@ -518,7 +518,7 @@ for Mf, Uf, p, Us, t in pprob.solve():
     dU, L = Us.split(True)
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
-    poro.write_file(f2, Mf, 'mf', t)
+    [poro.write_file(f2[i], Mf[i], 'mf{}'.format(i), t) for i in range(N)]
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, dU, 'du', t)
 
