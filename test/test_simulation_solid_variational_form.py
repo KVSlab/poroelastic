@@ -274,7 +274,7 @@ class HyperElasticProblem(object):
             A = assemble(a)
             b = assemble(Ll)
             [bc.apply(A, b) for bc in self.pbcs]
-            solver = KrylovSolver('minres', 'hypre_amg')
+            solver = KrylovSolver('gmres', 'hypre_amg')
             prm = solver.parameters
             prm.absolute_tolerance = TOL
             prm.relative_tolerance = TOL*1e3
