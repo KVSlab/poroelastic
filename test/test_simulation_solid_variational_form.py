@@ -4,15 +4,16 @@
 
 
 """ Set up for simulation using the poroelastic package. """
-import sys
 import uuid
+import sys
 from ufl import grad as ufl_grad
-import poroelastic as poro
-import dolfin as df
+import sys
 import numpy as np
-#import matplotlib.pyplot as plt
+import dolfin as df
+import poroelastic as poro
 from poroelastic.material_models import *
 import poroelastic.utils as utils
+
 
 # Compiler parameters
 flags = ["-O3", "-ffast-math", "-march=native"]
@@ -370,6 +371,16 @@ class HyperElasticProblem(object):
         sol = NonlinearVariationalSolver(prob)
         sol.parameters['newton_solver']['linear_solver'] = 'mumps'
         sol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
+        sol.parameters['newton_solver']['maximum_iterations'] = 1000
+        return sol
+
+    def iterative_solver(self, prob):
+        TOL = self.TOL()
+        sol = NonlinearVariationalSolver(prob)
+        sol.parameters['newton_solver']['linear_solver'] = 'minres'
+        sol.parameters['newton_solver']['preconditioner'] = 'hypre_amg'
+        sol.parameters['newton_solver']['absolute_tolerance'] = TOL
+        sol.parameters['newton_solver']['relative_tolerance'] = TOL*1e3
         sol.parameters['newton_solver']['maximum_iterations'] = 1000
         return sol
 
