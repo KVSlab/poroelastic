@@ -16,12 +16,12 @@ import poroelastic.utils as utils
 
 
 # Compiler parameters
-flags = ["-O3", "-ffast-math", "-march=native"]
-parameters["form_compiler"]["quadrature_degree"] = 4
+#flags = ["-O3", "-ffast-math", "-march=native"]
+#parameters["form_compiler"]["quadrature_degree"] = 4
 parameters["form_compiler"]["representation"] = "uflacs"
 parameters["form_compiler"]["cpp_optimize"] = True
-parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
-parameters["allow_extrapolation"] = True
+#parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
+#parameters["allow_extrapolation"] = True
 
 set_log_level(10)
 
@@ -129,9 +129,9 @@ class HyperElasticProblem(object):
             self.tconditions.append(condition)
 
 
-    def add_solid_neumann_conditions(self, conditions, boundaries):
-        self.SForm, self.dSForm =\
-                    self.set_solid_variational_form(zip(conditions, boundaries))
+    # def add_solid_neumann_conditions(self, conditions, boundaries):
+    #     self.SForm, self.dSForm =\
+    #                 self.set_solid_variational_form(zip(conditions, boundaries))
 
 
     # def add_fluid_dirichlet_condition(self, condition, *args, **kwargs):
@@ -182,7 +182,7 @@ class HyperElasticProblem(object):
         # Kinematics
         n = FacetNormal(self.mesh)
         #Return the dimension of the space this cell is embedded in
-        d = len(dU)
+        d = dU.geometric_dimension()
         self.I = Identity(d)
         self.F = variable(self.I + ufl_grad(dU))
         self.J = variable(det(self.F))
