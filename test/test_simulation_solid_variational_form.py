@@ -83,12 +83,14 @@ class HyperElasticProblem(object):
         self.tconditions = []
 
         # Material
-        if self.params['Material']["material"] == "isotropic exponential form":
-            self.material = IsotropicExponentialFormMaterial(self.params['Material'])
-        elif self.params['Material']["material"] == "linear poroelastic":
-            self.material = LinearPoroelasticMaterial(self.params['Material'])
-        elif self.params['Material']["material"] == "Neo-Hookean":
+        # if self.params['Material']["material"] == "isotropic exponential form":
+        #     self.material = IsotropicExponentialFormMaterial(self.params['Material'])
+        # elif self.params['Material']["material"] == "linear poroelastic":
+        #     self.material = LinearPoroelasticMaterial(self.params['Material'])
+        if self.params['Material']["material"] == "Neo-Hookean":
             self.material = NeoHookeanMaterial(self.params['Material'])
+        else:
+            print("Unable to find right material.")
 
         # Set variational forms
         self.SForm, self.dSForm = self.set_solid_variational_form({})
@@ -132,17 +134,17 @@ class HyperElasticProblem(object):
                     self.set_solid_variational_form(zip(conditions, boundaries))
 
 
-    def add_fluid_dirichlet_condition(self, condition, *args, **kwargs):
-        if 'source' in kwargs.keys() and kwargs['source']:
-            sub = 0 if self.N > 1 else 0
-        else:
-            sub = self.N-1
-        if 'time' in kwargs.keys() and kwargs['time']:
-            self.tconditions.append(condition)
-        if self.N == 1:
-            self.fbcs.append(DirichletBC(self.FS_M, condition, *args))
-        else:
-            self.fbcs.append(DirichletBC(self.FS_M.sub(sub), condition, *args))
+    # def add_fluid_dirichlet_condition(self, condition, *args, **kwargs):
+    #     if 'source' in kwargs.keys() and kwargs['source']:
+    #         sub = 0 if self.N > 1 else 0
+    #     else:
+    #         sub = self.N-1
+    #     if 'time' in kwargs.keys() and kwargs['time']:
+    #         self.tconditions.append(condition)
+    #     if self.N == 1:
+    #         self.fbcs.append(DirichletBC(self.FS_M, condition, *args))
+    #     else:
+    #         self.fbcs.append(DirichletBC(self.FS_M.sub(sub), condition, *args))
 
 
     # def add_pressure_dirichlet_condition(self, condition, *args, **kwargs):
@@ -232,23 +234,24 @@ class HyperElasticProblem(object):
             Form += rho*q_out*vm*dx
 
         else:
-            vm = TestFunctions(self.FS_M)
-            Form = sum([k*(m[i] - m_n[i])*vm[i]*dx for i in range(self.N)])\
-                + sum([dot(grad(M[i]), k*(dU-dU_n))*vm[i]*dx
-                                                    for i in range(self.N)])\
-                + sum([inner(-A*grad(self.p[i]), grad(vm[i]))*dx
-                                                    for i in range(self.N)])
-
-            # Compartment exchange
-            for i in range(len(beta)):
-                Form += -self.J*beta[i]*((self.p[i] - self.p[i+1])*vm[i] +\
-                                        (self.p[i+1] - self.p[i])*vm[i+1])*dx
-
-            # Add inflow terms
-            Form += -rho*self.qi*vm[0]*dx
-
-            # Add outflow term
-            Form += rho*q_out*vm[-1]*dx
+            print("looking at one compartment, Please!")
+        #     vm = TestFunctions(self.FS_M)
+        #     Form = sum([k*(m[i] - m_n[i])*vm[i]*dx for i in range(self.N)])\
+        #         + sum([dot(grad(M[i]), k*(dU-dU_n))*vm[i]*dx
+        #                                             for i in range(self.N)])\
+        #         + sum([inner(-A*grad(self.p[i]), grad(vm[i]))*dx
+        #                                             for i in range(self.N)])
+        #
+        #     # Compartment exchange
+        #     for i in range(len(beta)):
+        #         Form += -self.J*beta[i]*((self.p[i] - self.p[i+1])*vm[i] +\
+        #                                 (self.p[i+1] - self.p[i])*vm[i+1])*dx
+        #
+        #     # Add inflow terms
+        #     Form += -rho*self.qi*vm[0]*dx
+        #
+        #     # Add outflow term
+        #     Form += rho*q_out*vm[-1]*dx
 
         dF = derivative(Form, m, TrialFunction(self.FS_M))
 
@@ -583,8 +586,6 @@ tf = params.p['Parameter']["tf"]
 #
 # The average error which will be calculated is stored in the list 'avg_error'.
 #avg_error = []
-#
-#
 for Mf, Uf, p, Us, t in hprob.solve():
 
     dU, L = Us.split(True)
