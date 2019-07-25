@@ -23,7 +23,7 @@ parameters["form_compiler"]["cpp_optimize"] = True
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 parameters["allow_extrapolation"] = True
 
-set_log_level(30)
+set_log_level(10)
 
 
 class HyperElasticProblem(object):
