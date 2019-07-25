@@ -129,9 +129,9 @@ class HyperElasticProblem(object):
             self.tconditions.append(condition)
 
 
-    def add_solid_neumann_conditions(self, conditions, boundaries):
-        self.SForm, self.dSForm =\
-                   self.set_solid_variational_form(zip(conditions, boundaries))
+    # def add_solid_neumann_conditions(self, conditions, boundaries):
+    #     self.SForm, self.dSForm =\
+    #                 self.set_solid_variational_form(zip(conditions, boundaries))
 
 
     # def add_fluid_dirichlet_condition(self, condition, *args, **kwargs):
@@ -274,7 +274,7 @@ class HyperElasticProblem(object):
             A = assemble(a)
             b = assemble(Ll)
             [bc.apply(A, b) for bc in self.pbcs]
-            solver = KrylovSolver('gmres', 'hypre_amg')
+            solver = KrylovSolver('minres', 'hypre_amg')
             prm = solver.parameters
             prm.absolute_tolerance = TOL
             prm.relative_tolerance = TOL*1e3
@@ -297,7 +297,7 @@ class HyperElasticProblem(object):
             a = (1/rho)*inner(self.F*m, mv)*dx
             L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p[i]), mv)*dx
 
-            solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "gmres",
+            solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
                                                 "preconditioner": "hypre_amg"})
 
 
