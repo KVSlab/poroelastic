@@ -181,6 +181,7 @@ class HyperElasticProblem(object):
 
         # Kinematics
         n = FacetNormal(self.mesh)
+        #Return the dimension of the space this cell is embedded in
         d = dU.geometric_dimension()
         self.I = Identity(d)
         self.F = variable(self.I + ufl_grad(dU))
@@ -310,7 +311,8 @@ class HyperElasticProblem(object):
         if self.params['Simulation']['solver'] == 'direct':
             return self.direct_solver(prob)
         else:
-            return self.iterative_solver(prob)
+            print("No other option than direct_solver for minimal example.")
+            # return self.iterative_solver(prob)
 
 
     def solve(self):
