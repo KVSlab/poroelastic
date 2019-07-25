@@ -182,7 +182,7 @@ class HyperElasticProblem(object):
         # Kinematics
         n = FacetNormal(self.mesh)
         #Return the dimension of the space this cell is embedded in
-        d = dU.geometric_dimension()
+        d = len(dU)
         self.I = Identity(d)
         self.F = variable(self.I + ufl_grad(dU))
         self.J = variable(det(self.F))
