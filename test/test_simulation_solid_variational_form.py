@@ -340,7 +340,7 @@ class HyperElasticProblem(object):
             while eps > tol and iter < maxiter:
                 mf_.assign(self.p[0])
                 ssol.solve()
-                sys.exit()
+                #sys.exit()
                 self.fluid_solid_coupling()
                 msol.solve()
                 e = self.p[0] - mf_
