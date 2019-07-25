@@ -145,14 +145,14 @@ class HyperElasticProblem(object):
             self.fbcs.append(DirichletBC(self.FS_M.sub(sub), condition, *args))
 
 
-    def add_pressure_dirichlet_condition(self, condition, *args, **kwargs):
-        if 'source' in kwargs.keys() and kwargs['source']:
-            sub = 0 if self.N > 1 else 0
-        else:
-            sub = self.N-1
-        if 'time' in kwargs.keys() and kwargs['time']:
-            self.tconditions.append(condition)
-        self.pbcs.append(DirichletBC(self.FS_F, condition, *args))
+    # def add_pressure_dirichlet_condition(self, condition, *args, **kwargs):
+    #     if 'source' in kwargs.keys() and kwargs['source']:
+    #         sub = 0 if self.N > 1 else 0
+    #     else:
+    #         sub = self.N-1
+    #     if 'time' in kwargs.keys() and kwargs['time']:
+    #         self.tconditions.append(condition)
+    #     self.pbcs.append(DirichletBC(self.FS_F, condition, *args))
 
 
     def sum_fluid_mass(self):
@@ -374,15 +374,15 @@ class HyperElasticProblem(object):
         sol.parameters['newton_solver']['maximum_iterations'] = 1000
         return sol
 
-    def iterative_solver(self, prob):
-        TOL = self.TOL()
-        sol = NonlinearVariationalSolver(prob)
-        sol.parameters['newton_solver']['linear_solver'] = 'minres'
-        sol.parameters['newton_solver']['preconditioner'] = 'hypre_amg'
-        sol.parameters['newton_solver']['absolute_tolerance'] = TOL
-        sol.parameters['newton_solver']['relative_tolerance'] = TOL*1e3
-        sol.parameters['newton_solver']['maximum_iterations'] = 1000
-        return sol
+    # def iterative_solver(self, prob):
+    #     TOL = self.TOL()
+    #     sol = NonlinearVariationalSolver(prob)
+    #     sol.parameters['newton_solver']['linear_solver'] = 'minres'
+    #     sol.parameters['newton_solver']['preconditioner'] = 'hypre_amg'
+    #     sol.parameters['newton_solver']['absolute_tolerance'] = TOL
+    #     sol.parameters['newton_solver']['relative_tolerance'] = TOL*1e3
+    #     sol.parameters['newton_solver']['maximum_iterations'] = 1000
+    #     return sol
 
     def rho(self):
         return Constant(self.params['Parameter']['rho'])
