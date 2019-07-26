@@ -13,6 +13,7 @@ import dolfin as df
 import poroelastic as poro
 from poroelastic.material_models import *
 import poroelastic.utils as utils
+import pdb
 
 
 # Compiler parameters
@@ -23,7 +24,7 @@ parameters["form_compiler"]["cpp_optimize"] = True
 parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
 parameters["allow_extrapolation"] = True
 
-set_log_level(10)
+set_log_level(0)
 
 
 class HyperElasticProblem(object):
@@ -37,7 +38,7 @@ class HyperElasticProblem(object):
         self.mesh = mesh
         self.params = params
         self.markers = markers
-        self.N = int(self.params['Parameter']['N'])
+        #self.N = int(self.params['Parameter']['N'])
 
         if boundaries != None:
             self.ds = ds(subdomain_data=boundaries)
@@ -68,7 +69,9 @@ class HyperElasticProblem(object):
         V2 = VectorElement('P', self.mesh.ufl_cell(), 2)
         P1 = FiniteElement('P', self.mesh.ufl_cell(), 1)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
-        FS_S = FunctionSpace(self.mesh, TH)
+        # FS_S = FunctionSpace(self.mesh, TH)
+
+        FS_S = VectorFunctionSpace(self.mesh, 'P', 1)
 
         return FS_S
 
@@ -76,12 +79,12 @@ class HyperElasticProblem(object):
         if 'n' in kwargs.keys():
             n = kwargs['n']
             dkwargs = {}
-            if 'method' in kwargs.keys():
-                dkwargs['method'] = kwargs['method']
-            self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
-                                *args, **dkwargs))
+            # if 'method' in kwargs.keys():
+            #     dkwargs['method'] = kwargs['method']
+            # self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
+            #                     *args, **dkwargs))
         else:
-            self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
+            self.sbcs.append(DirichletBC(self.FS_S, condition,
                                 *args, **kwargs))
         if 'time' in kwargs.keys() and kwargs['time']:
             self.tconditions.append(condition)
@@ -90,9 +93,9 @@ class HyperElasticProblem(object):
     def set_solid_variational_form(self, neumann_bcs):
 
         U = self.Us
-        dU, L = split(U)
+        dU = U
         V = TestFunction(self.FS_S)
-        v, w = split(V)
+        v = V
 
         # parameters
         phi0 = Constant(self.params['Parameter']['phi'])
@@ -118,7 +121,7 @@ class HyperElasticProblem(object):
         return Form, dF
 
     def move_mesh(self):
-        dU, L = self.Us.split(True)
+        dU = self.Us
         ALE.move(self.mesh, project(dU, VectorFunctionSpace(self.mesh, 'P', 1)))
 
 
@@ -126,30 +129,28 @@ class HyperElasticProblem(object):
         if self.params['Simulation']['solver'] == 'direct':
             return self.direct_solver(prob)
         else:
+            #return self.iterative_solver(prob)
             print("No other option than direct_solver for minimal example.")
 
     def solve(self):
+        #pdb.set_trace()
         comm = mpi_comm_world()
         mpiRank = MPI.rank(comm)
         tol = self.TOL()
         maxiter = 100
         t = 0.0
         dt = self.dt()
-        sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.sbcs,
-                                            J=self.dSForm)
+        sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.sbcs,J=self.dSForm)
+        #pdb.set_trace()
+        #breakpoint()
+        #PetscInfoAllow(PETSC_TRUE)
         ssol = self.choose_solver(sprob)
-
         while t < self.params['Parameter']['tf']:
-
-            if mpiRank == 0: utils.print_time(t)
-
+            if mpiRank == 0:
+                utils.print_time(t)
             iter = 0
-            eps = 1
-
-            while eps > tol and iter < maxiter:
-                ssol.solve()
-                eps = np.sqrt(assemble(e**2*dx))
-                iter += 1
+            #eps = 1
+            ssol.solve()
             self.Us_n.assign(self.Us)
             yield self.Us, t
             self.move_mesh()
@@ -165,6 +166,15 @@ class HyperElasticProblem(object):
         sol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
         sol.parameters['newton_solver']['maximum_iterations'] = 1000
         return sol
+    # def iterative_solver(self, prob):
+    #     TOL = self.TOL()
+    #     sol = NonlinearVariationalSolver(prob)
+    #     sol.parameters['newton_solver']['linear_solver'] = 'minres'
+    #     sol.parameters['newton_solver']['preconditioner'] = 'hypre_amg'
+    #     sol.parameters['newton_solver']['absolute_tolerance'] = TOL
+    #     sol.parameters['newton_solver']['relative_tolerance'] = TOL*1e3
+    #     sol.parameters['newton_solver']['maximum_iterations'] = 1000
+    #     return sol
 
     def phi(self):
         return Constant(self.params['Parameter']['phi'])
@@ -292,8 +302,6 @@ domain_area = 1.0
 #
 #
 phi = params.p['Parameter']["phi"]
-#rho = params.p['Parameter']["rho"]
-#qi = params.p['Parameter']["qi"]
 dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
 #
@@ -301,11 +309,12 @@ tf = params.p['Parameter']["tf"]
 #avg_error = []
 for Us, t in hprob.solve():
 
-    dU, L = Us.split(True)
+    dU = Us
 
     poro.write_file(f4, dU, 'du', t)
 
-    #domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
+    domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
+    print(domain_area)
 
 
 
@@ -315,4 +324,5 @@ f4.close()
 #
 #
 params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
+print("I finished")
 #
