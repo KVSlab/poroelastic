@@ -69,7 +69,7 @@ class HyperElasticProblem(object):
         V2 = VectorElement('P', self.mesh.ufl_cell(), 2)
         P1 = FiniteElement('P', self.mesh.ufl_cell(), 1)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
-        # FS_S = FunctionSpace(self.mesh, TH)
+        #FS_S = FunctionSpace(self.mesh, TH)
 
         FS_S = VectorFunctionSpace(self.mesh, 'P', 1)
 
@@ -89,6 +89,9 @@ class HyperElasticProblem(object):
         if 'time' in kwargs.keys() and kwargs['time']:
             self.tconditions.append(condition)
 
+    def add_solid_neumann_conditions(self, conditions, boundaries):
+        self.SForm, self.dSForm =\
+                    self.set_solid_variational_form(zip(conditions, boundaries))
 
     def set_solid_variational_form(self, neumann_bcs):
 
@@ -112,8 +115,8 @@ class HyperElasticProblem(object):
                                                 phi=phi0)
         Psic = self.Psi*dx #+ L*(self.J-Constant(1)-m/rho)*dx
 
-        #for condition, boundary in neumann_bcs:
-        #    Psic += dot(condition*n, dU)*self.ds(boundary)
+        for condition, boundary in neumann_bcs:
+            Psic += dot(condition*n, dU)*self.ds(boundary)
 
         Form = derivative(Psic, U, V)
         dF = derivative(Form, U, TrialFunction(self.FS_S))
@@ -264,13 +267,13 @@ r = df.Expression(("scale*0.0",
 hprob.add_solid_dirichlet_condition(zero, boundaries, 1)
 hprob.add_solid_dirichlet_condition(r, boundaries, 2)
 #
-# Body Force
-#B = df.Constant((0.0, -0.5, 0.0))
-#hprob.add_solid_dirichlet_condition(B, boundaries, 3, time=False)
+#Body Force
+B = df.Constant((0.0,-0.5, 0.0))
+hprob.add_solid_neumann_conditions(B, boundaries)
 #need to define right dirichlet boundary condition as string in .cfg file
 #Traction Force Neumann Boundary condition
-#T  = Constant((0.1,  0.0, 0.0))
-#hprob.add_solid_neumann_conditions(T, boundaries, 2)
+T  = Constant((0.1,  0.0, 0.0))
+hprob.add_solid_neumann_conditions(T, boundaries)
 #
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
