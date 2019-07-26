@@ -66,7 +66,7 @@ class HyperElasticProblem(object):
         self.SForm, self.dSForm, Psic = self.set_solid_variational_form({})
 
     def create_function_spaces(self):
-        V2 = VectorElement('P', self.mesh.ufl_cell(), 2)
+        V2 = VectorElement('P', self.mesh.ufl_cell(), 1)
         P1 = FiniteElement('P', self.mesh.ufl_cell(), 1)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
         FS_S = FunctionSpace(self.mesh, V2)
@@ -266,7 +266,7 @@ r = df.Expression(("scale*0.0",
 # Define Dirichlet boundary conditions on boundary subdomains for solid
 #
 hprob.add_solid_dirichlet_condition(zero, boundaries, 1)
-#hprob.add_solid_dirichlet_condition(r, boundaries, 2)
+hprob.add_solid_dirichlet_condition(r, boundaries, 2)
 #
 #Body Force
 #B = df.Constant((0.0,-0.5, 0.0))
