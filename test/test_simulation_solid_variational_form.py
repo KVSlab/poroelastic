@@ -66,7 +66,7 @@ class HyperElasticProblem(object):
         self.SForm, self.dSForm, Psic = self.set_solid_variational_form({})
 
     def create_function_spaces(self):
-        V2 = VectorElement('P', self.mesh.ufl_cell(), 1)
+        V2 = VectorElement('P', self.mesh.ufl_cell(), 2)
         P1 = FiniteElement('P', self.mesh.ufl_cell(), 1)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
         FS_S = FunctionSpace(self.mesh, V2)
