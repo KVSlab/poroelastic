@@ -261,7 +261,7 @@ zero = df.Constant((0,0,0))
 r = df.Expression(("scale*0.0",
                 "scale*(y0 + (x[1] - y0)*cos(theta) - (x[2] - z0)*sin(theta) - x[1])",
                 "scale*(z0 + (x[1] - y0)*sin(theta) + (x[2] - z0)*cos(theta) - x[2])"),
-                scale = 0.5, y0 = 0.5, z0 = 0.5, theta = np.pi/7, degree=2)
+                scale = 0.1, y0 = 0.5, z0 = 0.5, theta = np.pi/3, degree=2)
 #
 # Define Dirichlet boundary conditions on boundary subdomains for solid
 #
