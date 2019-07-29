@@ -50,7 +50,7 @@ parameters["form_compiler"]["representation"] = "uflacs"
 
 # Create mesh and define function space
 mesh = UnitCubeMesh(24, 16, 16)
-V = VectorFunctionSpace(mesh, "Lagrange", 1)
+V = VectorFunctionSpace(mesh, "Lagrange", 2)
 
 # Note that :py:class:`VectorFunctionSpace
 # <dolfin.functions.functionspace.VectorFunctionSpace>` creates a
@@ -85,7 +85,7 @@ c = Constant((0.0, 0.0, 0.0))
 r = Expression(("scale*0.0",
                 "scale*(y0 + (x[1] - y0)*cos(theta) - (x[2] - z0)*sin(theta) - x[1])",
                 "scale*(z0 + (x[1] - y0)*sin(theta) + (x[2] - z0)*cos(theta) - x[2])"),
-                scale = 0.5, y0 = 0.5, z0 = 0.5, theta = pi/3, degree=2)
+                scale = 0.5, y0 = 0.5, z0 = 0.5, theta = pi/7, degree=2)
 
 # Note the use of setting named parameters in the :py:class:`Expression
 # <dolfin.functions.expression.Expression>` for ``r``.
@@ -171,7 +171,7 @@ J = derivative(F, u, du)
 # :py:func:`solve <dolfin.fem.solving.solve>`::
 
 # Solve variational problem
-solve(F == 0, u, bcs, J=J)
+solve(F == 0, u, bcs, J=J, solver_parameters={'newton_solver': {'linear_solver': 'mumps'}})
 
 # Finally, the solution ``u`` is saved to a file named
 # ``displacement.pvd`` in VTK format, and the deformed mesh is plotted
