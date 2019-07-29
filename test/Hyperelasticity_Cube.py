@@ -63,4 +63,29 @@ def Hyperelastic_Cube(nx, ny, nz):
     # Total potential energy
     Pi = psi*dx
 
+    # Compute first variation of Pi (directional derivative about u in the direction of v)
+    F = derivative(Pi, u, v)
+
+    # Compute Jacobian of F
+    J = derivative(F, u, du)
+
+    # The complete variational problem can now be solved by a single call to
+    # :py:func:`solve <dolfin.fem.solving.solve>`::
+
+    # Solve variational problem
+    solve(F == 0, u, bcs, J=J, solver_parameters={'newton_solver': {'linear_solver': 'mumps'}})
+
+    # Finally, the solution ``u`` is saved to a file named
+    # ``displacement.pvd`` in VTK format, and the deformed mesh is plotted
+    # to the screen::
+
+    # Save solution in VTK format
+    file = File("displacement.pvd");
+    file << u;
+
+    # Plot solution
+    plot(u)
+    #plt.show()
+    plt.savefig("demo_hyperelasticity.png")
+
     return u
