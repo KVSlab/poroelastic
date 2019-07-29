@@ -30,10 +30,13 @@ from dolfin import *
 # The behavior of the form compiler FFC can be adjusted by prescribing
 # various parameters. Here, we want to use the UFLACS backend of FFC::
 
-# Optimization options for the form compiler
-parameters["form_compiler"]["cpp_optimize"] = True
+# Compiler parameters
+flags = ["-O3", "-ffast-math", "-march=native"]
+parameters["form_compiler"]["quadrature_degree"] = 4
 parameters["form_compiler"]["representation"] = "uflacs"
-
+parameters["form_compiler"]["cpp_optimize"] = True
+parameters["form_compiler"]["cpp_optimize_flags"] = " ".join(flags)
+parameters["allow_extrapolation"] = True
 # The first line tells the form compiler to use C++ compiler optimizations when
 # compiling the generated code. The remainder is a dictionary of options which
 # will be passed to the form compiler. It lists the optimizations strategies
