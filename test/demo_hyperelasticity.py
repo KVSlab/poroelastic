@@ -50,7 +50,7 @@ parameters["form_compiler"]["representation"] = "uflacs"
 
 # Create mesh and define function space
 mesh = UnitCubeMesh(24, 16, 16)
-V = VectorFunctionSpace(mesh, "Lagrange", 2)
+V = VectorFunctionSpace(mesh, "Lagrange", 1)
 
 # Note that :py:class:`VectorFunctionSpace
 # <dolfin.functions.functionspace.VectorFunctionSpace>` creates a
@@ -85,7 +85,7 @@ c = Constant((0.0, 0.0, 0.0))
 r = Expression(("scale*0.0",
                 "scale*(y0 + (x[1] - y0)*cos(theta) - (x[2] - z0)*sin(theta) - x[1])",
                 "scale*(z0 + (x[1] - y0)*sin(theta) + (x[2] - z0)*cos(theta) - x[2])"),
-                scale = 0.5, y0 = 0.5, z0 = 0.5, theta = pi/7, degree=2)
+                scale = 0.5, y0 = 0.5, z0 = 0.5, theta = pi/3, degree=2)
 
 # Note the use of setting named parameters in the :py:class:`Expression
 # <dolfin.functions.expression.Expression>` for ``r``.
@@ -148,7 +148,7 @@ mu, lmbda = Constant(E/(2*(1 + nu))), Constant(E*nu/((1 + nu)*(1 - 2*nu)))
 psi = (mu/2)*(Ic - 3) - mu*ln(J) + (lmbda/2)*(ln(J))**2
 
 # Total potential energy
-Pi = psi*dx - dot(B, u)*dx - dot(T, u)*ds
+Pi = psi*dx #- dot(B, u)*dx - dot(T, u)*ds
 
 # Just as for the body force and traction vectors, :py:class:`Constant
 # <dolfin.functions.constant.Constant>` has been used for the model
@@ -183,4 +183,5 @@ file << u;
 
 # Plot solution
 plot(u)
-plt.show()
+#plt.show()
+plt.savefig("demo_hyperelasticity.png")
