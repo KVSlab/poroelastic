@@ -231,6 +231,16 @@ class HyperElasticProblem(object):
         else:
             return Constant(self.params['Parameter']['qi'])
 
+    def K(self):
+        # if self.N == 1:
+        d = self.mf.geometric_dimension()
+        I = Identity(d)
+        K = Constant(self.params['Parameter']['K'])
+        if self.fibers:
+            return K*I
+        else:
+            return K*I
+
     def TOL(self):
         return self.params['Parameter']['TOL']
 
