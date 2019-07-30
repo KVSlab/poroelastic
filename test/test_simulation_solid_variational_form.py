@@ -330,6 +330,6 @@ print("I finished")
 #
 
 
-u = Hyperelastic_Cube(24,16,16)
+u = Hyperelastic_Cube(16,12,12)
 error = errornorm(u, dU, 'L2')
 print("The error is: {}".format(error))
