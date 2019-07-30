@@ -37,16 +37,22 @@ class HyperElasticProblem(object):
     - outflow (Neumann BC in fluid mass increase)
     """
 
-    def __init__(self, mesh, params, boundaries=None, markers={}):
+    def __init__(self, mesh, params, boundaries=None, markers={},fibers=None, territories=None):
         self.mesh = mesh
         self.params = params
         self.markers = markers
-        #self.N = int(self.params['Parameter']['N'])
+        self.N = int(self.params['Parameter']['N'])
 
         if boundaries != None:
             self.ds = ds(subdomain_data=boundaries)
         else:
             self.ds = ds()
+
+        if territories == None:
+            self.territories = MeshFunction("size_t", mesh, mesh.topology().dim())
+            self.territories.set_all(0)
+        else:
+            self.territories = territories
 
         # Create function spaces
         self.FS_S = self.create_function_spaces()
@@ -316,8 +322,8 @@ for Us, t in hprob.solve():
 
     dU = Us
 
-    diff = project(dU-u, dU.function_space())
-    poro.write_file(f4, diff, 'du', t)
+    #diff = project(dU-u, dU.function_space())
+    poro.write_file(f4, dU, 'du', t)
 
     domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
 
