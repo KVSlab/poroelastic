@@ -219,6 +219,18 @@ class HyperElasticProblem(object):
         theta = self.params['Parameter']['theta']
         return Constant(theta), Constant(1-theta)
 
+    def q_out(self):
+        if isinstance(self.params['Parameter']['qo'], str):
+            return Expression(self.params['Parameter']['qo'], degree=1)
+        else:
+            return Constant(self.params['Parameter']['qo'])
+
+    def q_in(self):
+        if isinstance(self.params['Parameter']['qi'], str):
+            return Expression(self.params['Parameter']['qi'], degree=1)
+        else:
+            return Constant(self.params['Parameter']['qi'])
+
     def TOL(self):
         return self.params['Parameter']['TOL']
 
