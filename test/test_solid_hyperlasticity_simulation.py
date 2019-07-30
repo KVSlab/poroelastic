@@ -199,9 +199,17 @@ class HyperElasticProblem(object):
     #     sol.parameters['newton_solver']['relative_tolerance'] = TOL*1e3
     #     sol.parameters['newton_solver']['maximum_iterations'] = 1000
     #     return sol
+    def rho(self):
+        return Constant(self.params['Parameter']['rho'])
 
     def phi(self):
         return Constant(self.params['Parameter']['phi'])
+
+    def beta(self):
+        beta = self.params['Parameter']['beta']
+        if isinstance(beta, float):
+            beta = [beta]
+        return [Constant(b) for b in beta]
 
 
     def dt(self):
