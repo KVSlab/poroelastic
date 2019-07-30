@@ -190,15 +190,17 @@ class HyperElasticProblem(object):
         sol.parameters['newton_solver']['lu_solver']['reuse_factorization'] = True
         sol.parameters['newton_solver']['maximum_iterations'] = 1000
         return sol
-    # def iterative_solver(self, prob):
-    #     TOL = self.TOL()
-    #     sol = NonlinearVariationalSolver(prob)
-    #     sol.parameters['newton_solver']['linear_solver'] = 'minres'
-    #     sol.parameters['newton_solver']['preconditioner'] = 'hypre_amg'
-    #     sol.parameters['newton_solver']['absolute_tolerance'] = TOL
-    #     sol.parameters['newton_solver']['relative_tolerance'] = TOL*1e3
-    #     sol.parameters['newton_solver']['maximum_iterations'] = 1000
-    #     return sol
+
+    def iterative_solver(self, prob):
+        TOL = self.TOL()
+        sol = NonlinearVariationalSolver(prob)
+        sol.parameters['newton_solver']['linear_solver'] = 'minres'
+        sol.parameters['newton_solver']['preconditioner'] = 'hypre_amg'
+        sol.parameters['newton_solver']['absolute_tolerance'] = TOL
+        sol.parameters['newton_solver']['relative_tolerance'] = TOL*1e3
+        sol.parameters['newton_solver']['maximum_iterations'] = 1000
+        return sol
+
     def rho(self):
         return Constant(self.params['Parameter']['rho'])
 
