@@ -52,7 +52,7 @@ parameters["allow_extrapolation"] = True
 # element space)::
 
 # Create mesh and define function space
-mesh = UnitCubeMesh(24, 16, 16)
+mesh = UnitCubeMesh(16,12,12)
 V = VectorFunctionSpace(mesh, "Lagrange", 2)
 
 # Note that :py:class:`VectorFunctionSpace
