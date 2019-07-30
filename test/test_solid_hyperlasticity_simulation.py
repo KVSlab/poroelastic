@@ -143,6 +143,115 @@ class HyperElasticProblem(object):
         dF = derivative(Form, U, TrialFunction(self.FS_S))
 
         return Form, dF, Psic
+        
+    def set_fluid_variational_form(self):
+
+        m = self.mf
+        m_n = self.mf_n
+        dU, L = self.Us.split(True)
+        dU_n, L_n = self.Us_n.split(True)
+
+        # Parameters
+        self.qi = self.q_in()
+        q_out = self.q_out()
+        rho = self.rho()
+        beta = self.beta()
+        k = Constant(1/self.dt())
+        dt = Constant(self.dt())
+        th, th_ = self.theta()
+        n = FacetNormal(self.mesh)
+
+        # VK = TensorFunctionSpace(self.mesh, "P", 1)
+        # if d == 2:
+        #     exp = Expression((('0.5', '0.0'),('0.0', '1.0')), degree=1)
+        # elif d == 3:
+        #     exp = Expression((('1.0', '0.0', '0.0'),('0.0', '1.0', '0.0'),
+        #                         ('0.0', '0.0', '1.0')), degree=1)
+        # self.K = project(Ki*exp, VK, solver_type='mumps')
+
+        # theta-rule / Crank-Nicolson
+        M = th*m + th_*m_n
+
+        # Fluid variational form
+        A = variable(rho * self.J * inv(self.F) * self.K() * inv(self.F.T))
+        if self.N == 1:
+            vm = TestFunction(self.FS_M)
+            Form = k*(m - m_n)*vm*dx + dot(grad(M), k*(dU-dU_n))*vm*dx +\
+                    inner(-A*grad(self.p[0]), grad(vm))*dx
+
+            # Add inflow terms
+            Form += -rho*self.qi*vm*dx
+
+            # Add outflow term
+            Form += rho*q_out*vm*dx
+
+        else:
+            vm = TestFunctions(self.FS_M)
+            Form = sum([k*(m[i] - m_n[i])*vm[i]*dx for i in range(self.N)])\
+                + sum([dot(grad(M[i]), k*(dU-dU_n))*vm[i]*dx
+                                                    for i in range(self.N)])\
+                + sum([inner(-A*grad(self.p[i]), grad(vm[i]))*dx
+                                                    for i in range(self.N)])
+
+            # Compartment exchange
+            for i in range(len(beta)):
+                Form += -self.J*beta[i]*((self.p[i] - self.p[i+1])*vm[i] +\
+                                        (self.p[i+1] - self.p[i])*vm[i+1])*dx
+
+            # Add inflow terms
+            Form += -rho*self.qi*vm[0]*dx
+
+            # Add outflow term
+            Form += rho*q_out*vm[-1]*dx
+
+        dF = derivative(Form, m, TrialFunction(self.FS_M))
+
+        return Form, dF
+
+
+
+    def fluid_solid_coupling(self):
+        TOL = self.TOL()
+        dU, L = self.Us.split(True)
+        if self.N == 1:
+            FS = self.FS_M
+        else:
+            FS = self.FS_M.sub(0).collapse()
+        for i in range(self.N):
+            p = TrialFunction(self.FS_F)
+            q = TestFunction(self.FS_F)
+            a = p*q*dx
+            Ll = (tr(diff(self.Psi, self.F) * self.F.T))/self.phif[i]*q*dx - L*q*dx
+            A = assemble(a)
+            b = assemble(Ll)
+            [bc.apply(A, b) for bc in self.pbcs]
+            solver = KrylovSolver('minres', 'hypre_amg')
+            prm = solver.parameters
+            prm.absolute_tolerance = TOL
+            prm.relative_tolerance = TOL*1e3
+            prm.maximum_iterations = 1000
+            p = Function(self.FS_F)
+            solver.solve(A, p.vector(), b)
+            self.p[i].assign(project(p, FS))
+
+
+    def calculate_flow_vector(self):
+        FS = VectorFunctionSpace(self.mesh, 'P', 1)
+        dU, L = self.Us.split(True)
+        m = TrialFunction(self.FS_V)
+        mv = TestFunction(self.FS_V)
+
+        # Parameters
+        rho = Constant(self.rho())
+
+        for i in range(self.N):
+            a = (1/rho)*inner(self.F*m, mv)*dx
+            L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p[i]), mv)*dx
+
+            solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
+                                                "preconditioner": "hypre_amg"})
+
+
 
     def move_mesh(self):
         dU = self.Us
@@ -154,7 +263,7 @@ class HyperElasticProblem(object):
             return self.direct_solver(prob)
         else:
             return self.iterative_solver(prob)
-            
+
     def solve(self):
         #pdb.set_trace()
         comm = mpi_comm_world()
