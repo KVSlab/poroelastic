@@ -52,15 +52,15 @@ class HyperElasticProblem(object):
         self.FS_S = self.create_function_spaces()
 
         # Create solution functions
-        # self.Us = Function(self.FS_S)
+        self.Us = Function(self.FS_S)
         # give initial value for solution of solid form
         # u_init = InitialConditions()
-        d = self.mesh.topology().dim()
-        initial = Constant([1e-2 for i in range(d)])
-        us0 = interpolate(initial, self.FS_S)
+        #d = self.mesh.topology().dim()
+        #initial = Constant([1e-2 for i in range(d)])
+        #us0 = interpolate(initial, self.FS_S)
         self.Us_n = Function(self.FS_S)
-        self.Us = Function(self.FS_S)
-        assign(self.Us, us0)
+        #self.Us = Function(self.FS_S)
+        #assign(self.Us, us0)
 
         # initial = interpolate(self.FS, FS_S)
         #self.Us. = interpolate(1e-2, self.FS_S, FS_S)
@@ -311,12 +311,13 @@ phi = params.p['Parameter']["phi"]
 dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
 #
-
+u = Hyperelastic_Cube(16,12,12)
 for Us, t in hprob.solve():
 
     dU = Us
 
-    poro.write_file(f4, dU, 'du', t)
+    diff = project(dU-u, dU.function_space())
+    poro.write_file(f4, diff, 'du', t)
 
     domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
 
@@ -333,7 +334,7 @@ params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 print("I finished")
 #
 
-u = Hyperelastic_Cube(16,12,12)
-# u = Hyperelastic_Cube(24,16,16)
+
+#u = Hyperelastic_Cube(24,16,16)
 error = errornorm(u, dU, 'L2')
 print("The error is: {}".format(error))
