@@ -153,9 +153,8 @@ class HyperElasticProblem(object):
         if self.params['Simulation']['solver'] == 'direct':
             return self.direct_solver(prob)
         else:
-            #return self.iterative_solver(prob)
-            print("No other option than direct_solver for minimal example.")
-
+            return self.iterative_solver(prob)
+            
     def solve(self):
         #pdb.set_trace()
         comm = mpi_comm_world()
@@ -170,14 +169,17 @@ class HyperElasticProblem(object):
         #PetscInfoAllow(PETSC_TRUE)
         ssol = self.choose_solver(sprob)
         while t < self.params['Parameter']['tf']:
-            if mpiRank == 0:
-                utils.print_time(t)
+            if mpiRank == 0:utils.print_time(t)
+
+
             iter = 0
             #eps = 1
             ssol.solve()
             self.Us_n.assign(self.Us)
             yield self.Us, t
+
             self.move_mesh()
+
             t += dt
 
         # Add a last print so that next output won't overwrite my time print statements
