@@ -24,12 +24,6 @@ parameters["allow_extrapolation"] = True
 
 set_log_level(0)
 
-# class InitialConditions(UserExpression):
-#     def eval(self, value, x):
-#         value[0]= Expression((1e-2),degree=1)
-#         value[1]=0.0
-#     def value_shape(self):
-#         return (1,)
 class HyperElasticProblem(object):
     """
     Boundary marker labels:
@@ -79,7 +73,7 @@ class HyperElasticProblem(object):
         self.sbcs = []
         self.fbcs = []
         self.pbcs = []
-        # self.tconditions = []
+        self.tconditions = []
 
         if self.params['Material']["material"] == "isotropic exponential form":
             self.material = IsotropicExponentialFormMaterial(self.params['Material'])
@@ -90,7 +84,7 @@ class HyperElasticProblem(object):
 
 
         # Set variational forms
-        self.SForm, self.dSForm, Psic = self.set_solid_variational_form({})
+        self.SForm, self.dSForm = self.set_solid_variational_form({})
 
     def create_function_spaces(self):
         V1 = VectorElement('P', self.mesh.ufl_cell(), 1)
@@ -188,7 +182,7 @@ class HyperElasticProblem(object):
         Form = derivative(Psic, U, V)
         dF = derivative(Form, U, TrialFunction(self.FS_S))
 
-        return Form, dF, Psic
+        return Form, dF
 
     def set_fluid_variational_form(self):
 
