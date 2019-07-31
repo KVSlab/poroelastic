@@ -114,6 +114,38 @@ class HyperElasticProblem(object):
         self.SForm, self.dSForm =\
                     self.set_solid_variational_form(zip(conditions, boundaries))
 
+    def add_fluid_dirichlet_condition(self, condition, *args, **kwargs):
+        if 'source' in kwargs.keys() and kwargs['source']:
+            sub = 0 if self.N > 1 else 0
+        else:
+            sub = self.N-1
+        if 'time' in kwargs.keys() and kwargs['time']:
+            self.tconditions.append(condition)
+        if self.N == 1:
+            self.fbcs.append(DirichletBC(self.FS_M, condition, *args))
+        else:
+            self.fbcs.append(DirichletBC(self.FS_M.sub(sub), condition, *args))
+
+
+    def add_pressure_dirichlet_condition(self, condition, *args, **kwargs):
+        if 'source' in kwargs.keys() and kwargs['source']:
+            sub = 0 if self.N > 1 else 0
+        else:
+            sub = self.N-1
+        if 'time' in kwargs.keys() and kwargs['time']:
+            self.tconditions.append(condition)
+        self.pbcs.append(DirichletBC(self.FS_F, condition, *args))
+
+
+    def sum_fluid_mass(self):
+        if self.N == 1:
+            return self.mf/self.params['Parameter']['rho']
+        else:
+            return sum([self.mf[i]
+                    for i in range(self.N)])/self.params['Parameter']['rho']
+
+
+
     def set_solid_variational_form(self, neumann_bcs):
 
         U = self.Us
@@ -134,7 +166,7 @@ class HyperElasticProblem(object):
 
         self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
                                                 phi=phi0)
-        Psic = self.Psi*dx #+ L*(self.J-Constant(1)-m/rho)*dx
+        Psic = self.Psi*dx #+  L*(self.J-Constant(1)-m/rho)*dx
 
         for condition, boundary in neumann_bcs:
             Psic += dot(condition*n, dU)*self.ds(boundary)
@@ -143,7 +175,7 @@ class HyperElasticProblem(object):
         dF = derivative(Form, U, TrialFunction(self.FS_S))
 
         return Form, dF, Psic
-        
+
     def set_fluid_variational_form(self):
 
         m = self.mf
