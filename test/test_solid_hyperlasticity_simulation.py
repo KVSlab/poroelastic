@@ -81,10 +81,13 @@ class HyperElasticProblem(object):
         self.pbcs = []
         # self.tconditions = []
 
-        if self.params['Material']["material"] == "Neo-Hookean":
+        if self.params['Material']["material"] == "isotropic exponential form":
+            self.material = IsotropicExponentialFormMaterial(self.params['Material'])
+        elif self.params['Material']["material"] == "linear poroelastic":
+            self.material = LinearPoroelasticMaterial(self.params['Material'])
+        elif self.params['Material']["material"] == "Neo-Hookean":
             self.material = NeoHookeanMaterial(self.params['Material'])
-        else:
-            print("Unable to find right material.")
+
 
         # Set variational forms
         self.SForm, self.dSForm, Psic = self.set_solid_variational_form({})
