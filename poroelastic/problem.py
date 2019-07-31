@@ -289,12 +289,18 @@ class PoroelasticProblem(object):
         rho = Constant(self.rho())
 
         for i in range(self.N):
-            a = (1/rho)*inner(self.F*m, mv)*dx
-            L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p[i]), mv)*dx
+            if (self.params['Parameter']['dt'] != self.params['Parameter']['tf']) or ((self.params['Parameter']['qo']) == 0.0) and ((self.params['Parameter']['qi']) == 0.0):
+                a = (1/rho)*inner(self.F*m, mv)*dx
+                L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p[i]), mv)*dx
 
-            solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
-                                                "preconditioner": "hypre_amg"})
-
+                solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
+                                                    "preconditioner": "hypre_amg"})
+            else:
+                print("\n *************************************************************\n\
+                Flow vector can only be calculated if dt!= tf and qi and qo!\
+                Simulation will continue without calculating the flow vector.\
+                \n *************************************************************")
+                break
 
 
     def move_mesh(self):
@@ -339,6 +345,7 @@ class PoroelasticProblem(object):
             while eps > tol and iter < maxiter:
                 mf_.assign(self.p[0])
                 ssol.solve()
+                #sys.exit()
                 self.fluid_solid_coupling()
                 msol.solve()
                 e = self.p[0] - mf_
@@ -353,9 +360,13 @@ class PoroelasticProblem(object):
             self.calculate_flow_vector()
 
             # transform mf into list
-            mf_list = [self.mf.sub(i) for i in range(self.N)]
+            if self.N > 1:
+                mf_list = [self.mf.sub(i) for i in range(self.N)]
 
-            yield mf_list, self.Uf, self.p, self.Us, t
+            if self.N ==1:
+                yield self.mf, self.Uf, self.p, self.Us, t
+            else:
+                yield mf_list, self.Uf, self.p, self.Us, t
 
             self.move_mesh()
 
@@ -426,14 +437,15 @@ class PoroelasticProblem(object):
             return Constant(self.params['Parameter']['qi'])
 
     def K(self):
-        # if self.N == 1:
+        #if self.N == 1:
         d = self.mf.geometric_dimension()
         I = Identity(d)
         K = Constant(self.params['Parameter']['K'])
-        if self.fibers:
-            return K*I
-        else:
-            return K*I
+        # if self.fibers:
+        #     return K*I
+        # else:
+        #     return K*I
+        return K*I
         # else:
         #     d = self.u[0].geometric_dimension()
         #     I = Identity(d)
