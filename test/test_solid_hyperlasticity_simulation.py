@@ -288,18 +288,17 @@ class HyperElasticProblem(object):
         rho = Constant(self.rho())
         #from IPython import embed; embed()
         for i in range(self.N):
-            if (self.params['Parameter']['dt'] != self.params['Parameter']['tf']) or ((self.params['Parameter']['qo']) == 0.0) and ((self.params['Parameter']['qi']) == 0.0):
-                a = (1/rho)*inner(self.F*m, mv)*dx
-                L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p[i]), mv)*dx
+            a = (1/rho)*inner(self.F*m, mv)*dx
+            L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p[i]), mv)*dx
 
-                solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
+            solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
                                                     "preconditioner": "hypre_amg"})
-            else:
-                print("\n ****************************************\n\
-                Flow vector can only be calculated if dt!= tf and qi and qo!\
-                Simulation will continue without calculating the flow vector.\
-                \n **************************************** )")
-                break
+            # else:
+            #     print("\n ****************************************\n\
+            #     Flow vector can only be calculated if dt!= tf and qi and qo!\
+            #     Simulation will continue without calculating the flow vector.\
+            #     \n **************************************** )")
+            #     break
 
 
 
@@ -361,7 +360,20 @@ class HyperElasticProblem(object):
             self.mf_n.assign(self.mf)
 
             # Calculate fluid vector
-            self.calculate_flow_vector()
+            if self.params['Parameter']['dt'] == self.params['Parameter']['tf']:
+                print("\n ****************************************\n\
+                Flow vector can only be calculated if dt!= tf \n\
+                Simulation will continue without calculating the flow vector.\
+                \n **************************************** )")
+
+            elif (self.params['Parameter']['qo'] == 0.0) and (self.params['Parameter']['qi'] == 0.0):
+                print("\n ****************************************\n\
+                Flow vector can only be calculated if qi,qo!=0 ! \n\
+                Simulation will continue without calculating the flow vector.\
+                \n **************************************** )")
+        
+            else:
+                self.calculate_flow_vector()
 
 
             # transform mf into list
