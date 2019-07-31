@@ -362,8 +362,13 @@ class HyperElasticProblem(object):
 
 
             # transform mf into list
-            # mf_list = [self.mf.sub(i) for i in range(self.N)]
-            yield self.mf, self.Uf, self.p, self.Us, t
+            if self.N > 1:
+                mf_list = [self.mf.sub(i) for i in range(self.N)]
+
+            if self.N ==1:
+                yield self.mf, self.Uf, self.p, self.Us, t
+            else:
+                yield mf_list, self.Uf, self.p, self.Us, t
 
             self.move_mesh()
 
