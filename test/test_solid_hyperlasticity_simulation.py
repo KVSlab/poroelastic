@@ -85,6 +85,7 @@ class HyperElasticProblem(object):
 
         # Set variational forms
         self.SForm, self.dSForm = self.set_solid_variational_form({})
+        #self.MForm, self.dMForm = self.set_fluid_variational_form()
 
     def create_function_spaces(self):
         V1 = VectorElement('P', self.mesh.ufl_cell(), 1)
@@ -162,6 +163,7 @@ class HyperElasticProblem(object):
         v = V
 
         # parameters
+        rho = self.rho()
         phi0 = Constant(self.params['Parameter']['phi'])
         # Kinematics
         n = FacetNormal(self.mesh)
