@@ -158,8 +158,10 @@ class HyperElasticProblem(object):
     def set_solid_variational_form(self, neumann_bcs):
 
         U = self.Us
+        #dU, L = split(U)
         dU = U
         V = TestFunction(self.FS_S)
+        #v, w = split(V)
         v = V
 
         # parameters
@@ -296,6 +298,7 @@ class HyperElasticProblem(object):
 
 
     def move_mesh(self):
+        #dU, L = self.Us.split(True)
         dU = self.Us
         ALE.move(self.mesh, project(dU, VectorFunctionSpace(self.mesh, 'P', 1)))
 
@@ -310,23 +313,45 @@ class HyperElasticProblem(object):
         #pdb.set_trace()
         comm = mpi_comm_world()
         mpiRank = MPI.rank(comm)
+
         tol = self.TOL()
         maxiter = 100
         t = 0.0
         dt = self.dt()
+
+        # mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
+        #                                     J=self.dMForm)
+        # msol = self.choose_solver(mprob)
+
+        #mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
+                                            #J=self.dMForm)
+        #msol = self.choose_solver(mprob)
+
         sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.sbcs,J=self.dSForm)
-        #pdb.set_trace()
-        #breakpoint()
-        #PetscInfoAllow(PETSC_TRUE)
         ssol = self.choose_solver(sprob)
+
         while t < self.params['Parameter']['tf']:
             if mpiRank == 0:utils.print_time(t)
+            #mf_ = Function(self.FS_F)
+            #mf_.assign(self.p[0])
 
-
-            iter = 0
+            #iter = 0
             #eps = 1
             ssol.solve()
+
+            #self.fluid_solid_coupling()
+            #msol.solve()
+            #e = self.p[0] - mf_
+            #eps = np.sqrt(assemble(e**2*dx))
+            #iter += 1
+
+
+            # Store current solution as previous
             self.Us_n.assign(self.Us)
+            #self.mf_n.assign(self.mf)
+
+            # transform mf into list
+            #mf_list = [self.mf.sub(i) for i in range(self.N)]
             yield self.Us, t
 
             self.move_mesh()
@@ -485,8 +510,16 @@ def set_xdmf_parameters(f):
 #
 N = int(params.p['Parameter']['N'])
 
+f1 = [df.XDMFFile(comm, '../data/{}/uf{}.xdmf'.format(data_dir, i)) for i in range(N)]
+f2 = df.XDMFFile(comm, '../data/{}/mf.xdmf'.format(data_dir))
+f3 = [df.XDMFFile(comm, '../data/{}/p{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f4 = df.XDMFFile(comm, '../data/{}/du.xdmf'.format(data_dir))
 #
+# Initialize 'set_xdmf_parameters' for XDMFFiles to be created
+#
+[set_xdmf_parameters(f1[i]) for i in range(N)]
+set_xdmf_parameters(f2)
+[set_xdmf_parameters(f3[i]) for i in range(N)]
 set_xdmf_parameters(f4)
 #
 #
@@ -495,26 +528,45 @@ dx = df.Measure("dx")
 ds = df.Measure("ds")(subdomain_data=boundaries)
 #
 # Set start variables for the calculations
+# Set start variables for the calculations
+sum_fluid_mass = 0
+theor_fluid_mass = 0
+sum_disp = 0
 domain_area = 1.0
 #
 #
 phi = params.p['Parameter']["phi"]
 dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
+rho = params.p['Parameter']["rho"]
+qi = params.p['Parameter']["qi"]
 #
-u = Hyperelastic_Cube(16,12,12)
+#u = Hyperelastic_Cube(16,12,12)
 for Us, t in hprob.solve():
 
+    #dU, L = Us.split(True)
     dU = Us
 
-    #diff = project(dU-u, dU.function_space())
+    #[poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
+    #poro.write_file(f2, Mf, 'mf', t)
+    #[poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, dU, 'du', t)
+    #diff = project(dU-u, dU.function_space())
 
     domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
 
 
 
+    #sum_fluid_mass += df.assemble(Mf*dx)
+    theor_fluid_mass += qi*rho*dt
+    #theor_sol = theor_fluid_mass*domain_area
+    sum_disp += df.assemble(dU[0]*ds(4))
+    #avg_error.append(np.sqrt(((df.assemble(Mf*dx)-theor_sol)/theor_sol)**2))
+    #print(theor_sol, df.assemble(Mf*dx))
 
+#[f1[i].close() for i in range(N)]
+#f2.close()
+#[f3[i].close() for i in range(N)]
 f4.close()
 #
 # error = sum(avg_error)/len(avg_error)
@@ -526,6 +578,6 @@ print("I finished")
 #
 
 
-#u = Hyperelastic_Cube(24,16,16)
+u = Hyperelastic_Cube(24,16,16)
 error = errornorm(u, dU, 'L2')
 print("The error is: {}".format(error))
