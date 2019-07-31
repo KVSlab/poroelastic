@@ -151,7 +151,7 @@ dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
 #
 # The average error which will be calculated is stored in the list 'avg_error'.
-avg_error = []
+#avg_error = []
 #
 # To solve the variational problem the class 'PoroelasticProblem' defined in the
 # the module 'problem' in the package 'Poroelastic' provides the function 'solve()'.
@@ -298,11 +298,11 @@ for Mf, Uf, p, Us, t in pprob.solve():
 
     domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
     sum_fluid_mass += df.assemble(Mf*dx)
-    theor_fluid_mass += qi*rho*dt
-    theor_sol = theor_fluid_mass*domain_area
+    #theor_fluid_mass += qi*rho*dt
+    #theor_sol = theor_fluid_mass*domain_area
     sum_disp += df.assemble(dU[0]*ds(4))
-    avg_error.append(np.sqrt(((df.assemble(Mf*dx)-theor_sol)/theor_sol)**2))
-    print(theor_sol, df.assemble(Mf*dx))
+    #avg_error.append(np.sqrt(((df.assemble(Mf*dx)-theor_sol)/theor_sol)**2))
+    #print(theor_sol, df.assemble(Mf*dx))
 
 [f1[i].close() for i in range(N)]
 f2.close()
@@ -312,7 +312,7 @@ f4.close()
 # The final error is calculated by normalizing the avg_error by the number of elements
 # in the list of errors.
 #
-error = sum(avg_error)/len(avg_error)
+#error = sum(avg_error)/len(avg_error)
 #
 # The function 'write_config' inherited by the class 'ParamParser' of the module
 # param_parser is executed on the configuration files to be created.
@@ -322,9 +322,9 @@ params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 # Finally, the result for the expected sum fluid mass, the calculated sum of the
 # fluid mass and the average error over all time steps are ptinted to the screen.
 #
-print("Expected sum fluid mass: {}".format(theor_fluid_mass))
+#print("Expected sum fluid mass: {}".format(theor_fluid_mass))
 print("Sum fluid mass: {}".format(sum_fluid_mass))
-print("Average error over all time steps: {}".format(error))
+#print("Average error over all time steps: {}".format(error))
 
 print("I finished")
 #
