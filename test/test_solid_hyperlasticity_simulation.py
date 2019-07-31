@@ -55,27 +55,31 @@ class HyperElasticProblem(object):
             self.territories = territories
 
         # Create function spaces
-        self.FS_S = self.create_function_spaces()
+        self.FS_S, self.FS_M, self.FS_F, self.FS_V = self.create_function_spaces()
 
         # Create solution functions
         self.Us = Function(self.FS_S)
-        # give initial value for solution of solid form
-        # u_init = InitialConditions()
-        #d = self.mesh.topology().dim()
-        #initial = Constant([1e-2 for i in range(d)])
-        #us0 = interpolate(initial, self.FS_S)
         self.Us_n = Function(self.FS_S)
-        #self.Us = Function(self.FS_S)
-        #assign(self.Us, us0)
+        self.mf = Function(self.FS_M)
+        self.mf_n = Function(self.FS_M)
+        self.Uf = [Function(self.FS_V) for i in range(self.N)]
+        if self.N == 1:
+            self.p = [Function(self.FS_M)]
+        else:
+            self.p =\
+                [Function(self.FS_M.sub(0).collapse()) for i in range(self.N)]
 
-        # initial = interpolate(self.FS, FS_S)
-        #self.Us. = interpolate(1e-2, self.FS_S, FS_S)
-
-
+        rho = self.rho()
         phi0 = self.phi()
+        if self.N == 1:
+            self.phif = [variable(self.mf/rho + phi0)]
+        else:
+            self.phif = [variable(self.mf[i]/rho + phi0) for i in range(self.N)]
 
         self.sbcs = []
-
+        self.fbcs = []
+        self.pbcs = []
+        # self.tconditions = []
 
         if self.params['Material']["material"] == "Neo-Hookean":
             self.material = NeoHookeanMaterial(self.params['Material'])
@@ -86,24 +90,31 @@ class HyperElasticProblem(object):
         self.SForm, self.dSForm, Psic = self.set_solid_variational_form({})
 
     def create_function_spaces(self):
+        V1 = VectorElement('P', self.mesh.ufl_cell(), 1)
         V2 = VectorElement('P', self.mesh.ufl_cell(), 2)
         P1 = FiniteElement('P', self.mesh.ufl_cell(), 1)
+        P2 = FiniteElement('P', self.mesh.ufl_cell(), 2)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
+        #FS_S = FunctionSpace(self.mesh, TH)
         FS_S = FunctionSpace(self.mesh, V2)
-        #FS_S = dolfin.FunctionSpace(self.mesh,TH)
-
-        #FS_S = VectorFunctionSpace(self.mesh, 'P', 1)
-
-        return FS_S
+        if self.N == 1:
+            FS_M = FunctionSpace(self.mesh, P1)
+        else:
+            M = MixedElement([P1 for i in range(self.N)])
+            FS_M = FunctionSpace(self.mesh, M)
+        FS_F = FunctionSpace(self.mesh, P2)
+        FS_V = FunctionSpace(self.mesh, V1)
+        return FS_S, FS_M, FS_F, FS_V
 
     def add_solid_dirichlet_condition(self, condition, *args, **kwargs):
         if 'n' in kwargs.keys():
             n = kwargs['n']
             dkwargs = {}
-            # if 'method' in kwargs.keys():
-            #     dkwargs['method'] = kwargs['method']
-            # self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
-            #                     *args, **dkwargs))
+            if 'method' in kwargs.keys():
+                dkwargs['method'] = kwargs['method']
+            self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
+                                *args, **dkwargs))
+
         else:
             self.sbcs.append(DirichletBC(self.FS_S, condition,
                                 *args, **kwargs))
