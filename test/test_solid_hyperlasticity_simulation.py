@@ -85,7 +85,7 @@ class HyperElasticProblem(object):
 
         # Set variational forms
         self.SForm, self.dSForm = self.set_solid_variational_form({})
-        #self.MForm, self.dMForm = self.set_fluid_variational_form()
+        self.MForm, self.dMForm = self.set_fluid_variational_form()
 
     def create_function_spaces(self):
         V1 = VectorElement('P', self.mesh.ufl_cell(), 1)
@@ -93,8 +93,7 @@ class HyperElasticProblem(object):
         P1 = FiniteElement('P', self.mesh.ufl_cell(), 1)
         P2 = FiniteElement('P', self.mesh.ufl_cell(), 2)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
-        #FS_S = FunctionSpace(self.mesh, TH)
-        FS_S = FunctionSpace(self.mesh, V2)
+        FS_S = FunctionSpace(self.mesh, TH)
         if self.N == 1:
             FS_M = FunctionSpace(self.mesh, P1)
         else:
@@ -114,7 +113,7 @@ class HyperElasticProblem(object):
                                 *args, **dkwargs))
 
         else:
-            self.sbcs.append(DirichletBC(self.FS_S, condition,
+            self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
                                 *args, **kwargs))
         if 'time' in kwargs.keys() and kwargs['time']:
             self.tconditions.append(condition)
@@ -158,15 +157,16 @@ class HyperElasticProblem(object):
     def set_solid_variational_form(self, neumann_bcs):
 
         U = self.Us
-        #dU, L = split(U)
-        dU = U
+        dU, L = split(U)
         V = TestFunction(self.FS_S)
-        #v, w = split(V)
-        v = V
+        v, w = split(V)
+        #v = V
+
 
         # parameters
         rho = self.rho()
         phi0 = Constant(self.params['Parameter']['phi'])
+        m = self.sum_fluid_mass()
         # Kinematics
         n = FacetNormal(self.mesh)
         #Return the dimension of the space this cell is embedded in
@@ -178,7 +178,7 @@ class HyperElasticProblem(object):
 
         self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
                                                 phi=phi0)
-        Psic = self.Psi*dx #+  L*(self.J-Constant(1)-m/rho)*dx
+        Psic = self.Psi*dx +  L*(self.J-Constant(1)-m/rho)*dx
 
         for condition, boundary in neumann_bcs:
             Psic += dot(condition*n, dU)*self.ds(boundary)
@@ -298,8 +298,8 @@ class HyperElasticProblem(object):
 
 
     def move_mesh(self):
-        #dU, L = self.Us.split(True)
-        dU = self.Us
+        dU, L = self.Us.split(True)
+        #dU = self.Us
         ALE.move(self.mesh, project(dU, VectorFunctionSpace(self.mesh, 'P', 1)))
 
 
@@ -319,40 +319,48 @@ class HyperElasticProblem(object):
         t = 0.0
         dt = self.dt()
 
-        # mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
-        #                                     J=self.dMForm)
-        # msol = self.choose_solver(mprob)
+        mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
+                                             J=self.dMForm)
+        msol = self.choose_solver(mprob)
 
-        #mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
-                                            #J=self.dMForm)
-        #msol = self.choose_solver(mprob)
+        mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
+                                            J=self.dMForm)
+        msol = self.choose_solver(mprob)
 
         sprob = NonlinearVariationalProblem(self.SForm, self.Us, bcs=self.sbcs,J=self.dSForm)
         ssol = self.choose_solver(sprob)
 
         while t < self.params['Parameter']['tf']:
+
             if mpiRank == 0:utils.print_time(t)
-            #mf_ = Function(self.FS_F)
-            #mf_.assign(self.p[0])
 
-            #iter = 0
-            #eps = 1
-            ssol.solve()
+            iter = 0
+            eps = 1
+            mf_ = Function(self.FS_F)
 
-            #self.fluid_solid_coupling()
-            #msol.solve()
-            #e = self.p[0] - mf_
-            #eps = np.sqrt(assemble(e**2*dx))
-            #iter += 1
+            while eps > tol and iter < maxiter:
+                mf_.assign(self.p[0])
+                ssol.solve()
+                #sys.exit()
+                self.fluid_solid_coupling()
+                msol.solve()
+                e = self.p[0] - mf_
+                eps = np.sqrt(assemble(e**2*dx))
+                iter += 1
+
 
 
             # Store current solution as previous
             self.Us_n.assign(self.Us)
-            #self.mf_n.assign(self.mf)
+            self.mf_n.assign(self.mf)
+
+            # Calculate fluid vector
+            #self.calculate_flow_vector()
+
 
             # transform mf into list
-            #mf_list = [self.mf.sub(i) for i in range(self.N)]
-            yield self.Us, t
+            # mf_list = [self.mf.sub(i) for i in range(self.N)]
+            yield self.mf, self.p, self.Us, t
 
             self.move_mesh()
 
@@ -416,10 +424,11 @@ class HyperElasticProblem(object):
         d = self.mf.geometric_dimension()
         I = Identity(d)
         K = Constant(self.params['Parameter']['K'])
-        if self.fibers:
-            return K*I
-        else:
-            return K*I
+        # if self.fibers:
+        #     return K*I
+        # else:
+        #     return K*I
+        return K*I
 
     def TOL(self):
         return self.params['Parameter']['TOL']
@@ -527,7 +536,7 @@ set_xdmf_parameters(f4)
 dx = df.Measure("dx")
 ds = df.Measure("ds")(subdomain_data=boundaries)
 #
-# Set start variables for the calculations
+
 # Set start variables for the calculations
 sum_fluid_mass = 0
 theor_fluid_mass = 0
@@ -542,14 +551,16 @@ rho = params.p['Parameter']["rho"]
 qi = params.p['Parameter']["qi"]
 #
 #u = Hyperelastic_Cube(16,12,12)
-for Us, t in hprob.solve():
+#from IPython import embed; embed()
 
-    #dU, L = Us.split(True)
-    dU = Us
+for Mf, p, Us, t in hprob.solve():
+    #from IPython import embed; embed()
+    dU, L = Us.split(True)
+    #dU = Us
 
     #[poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
-    #poro.write_file(f2, Mf, 'mf', t)
-    #[poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
+    poro.write_file(f2, Mf, 'mf', t)
+    [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, dU, 'du', t)
     #diff = project(dU-u, dU.function_space())
 
@@ -565,8 +576,8 @@ for Us, t in hprob.solve():
     #print(theor_sol, df.assemble(Mf*dx))
 
 #[f1[i].close() for i in range(N)]
-#f2.close()
-#[f3[i].close() for i in range(N)]
+f2.close()
+[f3[i].close() for i in range(N)]
 f4.close()
 #
 # error = sum(avg_error)/len(avg_error)
