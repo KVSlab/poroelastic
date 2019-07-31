@@ -295,7 +295,10 @@ class HyperElasticProblem(object):
                 solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
                                                     "preconditioner": "hypre_amg"})
             else:
-                print("Flow vector can only be calculated dt!= tf and qi and qo != )")
+                print("\n ****************************************\n\
+                Flow vector can only be calculated if dt!= tf and qi and qo!\
+                Simulation will continue without calculating the flow vector.\
+                \n **************************************** )")
                 break
 
 
