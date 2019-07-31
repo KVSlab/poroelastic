@@ -278,7 +278,6 @@ class HyperElasticProblem(object):
             solver.solve(A, p.vector(), b)
             self.p[i].assign(project(p, FS))
 
-
     def calculate_flow_vector(self):
         FS = VectorFunctionSpace(self.mesh, 'P', 1)
         dU, L = self.Us.split(True)
@@ -287,13 +286,17 @@ class HyperElasticProblem(object):
 
         # Parameters
         rho = Constant(self.rho())
-
+        #from IPython import embed; embed()
         for i in range(self.N):
-            a = (1/rho)*inner(self.F*m, mv)*dx
-            L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p[i]), mv)*dx
+            if (self.params['Parameter']['dt'] != self.params['Parameter']['tf']) or ((self.params['Parameter']['qo']) == 0.0) and ((self.params['Parameter']['qi']) == 0.0):
+                a = (1/rho)*inner(self.F*m, mv)*dx
+                L = inner(-self.J*self.K()*inv(self.F.T)*grad(self.p[i]), mv)*dx
 
-            solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
-                                                "preconditioner": "hypre_amg"})
+                solve(a == L, self.Uf[i], solver_parameters={"linear_solver": "minres",
+                                                    "preconditioner": "hypre_amg"})
+            else:
+                print("Flow vector can only be calculated dt!= tf and qi and qo != )")
+                break
 
 
 
@@ -355,12 +358,12 @@ class HyperElasticProblem(object):
             self.mf_n.assign(self.mf)
 
             # Calculate fluid vector
-            #self.calculate_flow_vector()
+            self.calculate_flow_vector()
 
 
             # transform mf into list
             # mf_list = [self.mf.sub(i) for i in range(self.N)]
-            yield self.mf, self.p, self.Us, t
+            yield self.mf, self.Uf, self.p, self.Us, t
 
             self.move_mesh()
 
@@ -553,12 +556,12 @@ qi = params.p['Parameter']["qi"]
 #u = Hyperelastic_Cube(16,12,12)
 #from IPython import embed; embed()
 
-for Mf, p, Us, t in hprob.solve():
+for Mf, Uf, p, Us, t in hprob.solve():
     #from IPython import embed; embed()
     dU, L = Us.split(True)
     #dU = Us
 
-    #[poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
+    [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
     poro.write_file(f2, Mf, 'mf', t)
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, dU, 'du', t)
@@ -575,7 +578,7 @@ for Mf, p, Us, t in hprob.solve():
     #avg_error.append(np.sqrt(((df.assemble(Mf*dx)-theor_sol)/theor_sol)**2))
     #print(theor_sol, df.assemble(Mf*dx))
 
-#[f1[i].close() for i in range(N)]
+[f1[i].close() for i in range(N)]
 f2.close()
 [f3[i].close() for i in range(N)]
 f4.close()
@@ -585,10 +588,10 @@ f4.close()
 #
 params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 
-print("I finished")
+print("I finished the HyperElasticProblem Part!")
 #
 
 
-u = Hyperelastic_Cube(24,16,16)
+u = Hyperelastic_Cube(16,12,12)
 error = errornorm(u, dU, 'L2')
 print("The error is: {}".format(error))
