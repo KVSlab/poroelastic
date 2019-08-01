@@ -4,8 +4,9 @@ import numpy as np
 
 def Hyperelastic_Cube(mesh):
 
-    # Create mesh and define function space
-    #mesh = UnitCubeMesh(nx, ny,nz)
+
+    # The mesh will be passed as an argument of the function in form of e.g., mesh = UnitCubeMesh(nx, ny,nz)
+    # Define function space
     V = VectorFunctionSpace(mesh, "Lagrange", 2)
     # Mark boundary subdomians
     left = CompiledSubDomain("near(x[0], side) && on_boundary", side = 0.0)
