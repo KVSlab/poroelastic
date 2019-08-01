@@ -106,9 +106,9 @@ pprob.add_solid_dirichlet_condition(zero, boundaries, 4)
 # Dirichlet BC left fluid mass 1e-3, set kwargs time=False, no Source needed since one compartment (N=1)
 # without setting condition , already 0 Neumann conditions
 # allows for pressure gradient
-half = df.Constant(1e-3)
+half = df.Constant(1e-8)
 zero_scalar = df.Constant(0.88)
-pprob.add_fluid_dirichlet_condition(half, boundaries, 1, time=False)
+# pprob.add_fluid_dirichlet_condition(half, boundaries, 1, time=False)
 #need to define right dirichlet boundary condition as string in .cfg file
 # currently set to :  "1e-6*(1-x[0])"
 #pprob.add_fluid_dirichlet_condition(zero_scalar, boundaries, 2, time=False)
