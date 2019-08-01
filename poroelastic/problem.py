@@ -353,13 +353,13 @@ class PoroelasticProblem(object):
                 print("\n ****************************************\n\
                 Flow vector can only be calculated if dt!= tf \n\
                 Simulation will continue without calculating the flow vector.\
-                \n **************************************** )")
+                \n **************************************** ")
 
             elif (self.params['Parameter']['qo'] == 0.0) and (self.params['Parameter']['qi'] == 0.0):
                 print("\n ****************************************\n\
                 Flow vector can only be calculated if qi,qo!=0 ! \n\
                 Simulation will continue without calculating the flow vector.\
-                \n **************************************** )")
+                \n **************************************** ")
 
             else:
                 self.calculate_flow_vector()
