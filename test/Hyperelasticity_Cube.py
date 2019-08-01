@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
 from dolfin import *
+import numpy as np
 
-def Hyperelastic_Cube(nx, ny, nz):
+def Hyperelastic_Cube(mesh):
 
     # Create mesh and define function space
-    mesh = UnitCubeMesh(nx, ny,nz)
+    #mesh = UnitCubeMesh(nx, ny,nz)
     V = VectorFunctionSpace(mesh, "Lagrange", 2)
     # Mark boundary subdomians
     left = CompiledSubDomain("near(x[0], side) && on_boundary", side = 0.0)
@@ -18,7 +19,7 @@ def Hyperelastic_Cube(nx, ny, nz):
     r = Expression(("scale*0.0",
                     "scale*(y0 + (x[1] - y0)*cos(theta) - (x[2] - z0)*sin(theta) - x[1])",
                     "scale*(z0 + (x[1] - y0)*sin(theta) + (x[2] - z0)*cos(theta) - x[2])"),
-                    scale = 0.5, y0 = 0.5, z0 = 0.5, theta = pi/7, degree=2)
+                    scale = 0.5, y0 = 0.5, z0 = 0.5, theta = np.pi/7, degree=2)
 
     # Note the use of setting named parameters in the :py:class:`Expression
     # <dolfin.functions.expression.Expression>` for ``r``.
