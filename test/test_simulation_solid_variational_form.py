@@ -289,14 +289,15 @@ tf = params.p['Parameter']["tf"]
 u = Hyperelastic_Cube(mesh)
 for Mf, Uf, p, Us, t in pprob.solve():
 
-    dU, L = Us.split(True)
+    #dU, L = Us.split(True)
+    dU = Us
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
     poro.write_file(f2, Mf, 'mf', t)
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
-    #poro.write_file(f4, dU, 'du', t)
-    diff = project(dU-u, dU.function_space())
-    poro.write_file(f4, diff, 'du', t)
+    poro.write_file(f4, dU, 'du', t)
+    #diff = project(dU-u, dU.function_space())
+    #poro.write_file(f4, diff, 'du', t)
 
     domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
     sum_fluid_mass += df.assemble(Mf*dx)
