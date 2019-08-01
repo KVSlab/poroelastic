@@ -178,6 +178,7 @@ class PoroelasticProblem(object):
 
         self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
                                                 M=m, rho=rho, phi=phi0)
+        L = interpolate(Constant(0), self.FS_S.sub(1).collapse())
         Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
 
         for condition, boundary in neumann_bcs:
