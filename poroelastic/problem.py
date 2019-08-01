@@ -42,7 +42,7 @@ class PoroelasticProblem(object):
             self.territories = territories
 
         # Create function spaces
-        self.FS_S, self.FS_M, self.FS_F, self.FS_V = self.create_function_spaces()
+        self.FS_CL,self.FS_S, self.FS_M, self.FS_F, self.FS_V = self.create_function_spaces()
 
         if fibers != None:
             self.fibers = Function(self.FS_V, fibers)
@@ -50,8 +50,8 @@ class PoroelasticProblem(object):
             self.fibers = None
 
         # Create solution functions
-        self.Us = Function(self.FS_S)
-        self.Us_n = Function(self.FS_S)
+        self.Us = Function(self.FS_CL)
+        self.Us_n = Function(self.FS_CL)
         self.mf = Function(self.FS_M)
         self.mf_n = Function(self.FS_M)
         self.Uf = [Function(self.FS_V) for i in range(self.N)]
@@ -93,6 +93,8 @@ class PoroelasticProblem(object):
         P2 = FiniteElement('P', self.mesh.ufl_cell(), 2)
         TH = MixedElement([V2, P1]) # Taylor-Hood element
         FS_S = FunctionSpace(self.mesh, TH)
+        #FS_CL = VectorFunctionSpace(self.mesh, V2)
+        FS_CL = FunctionSpace(self.mesh, V2)
         if self.N == 1:
             FS_M = FunctionSpace(self.mesh, P1)
         else:
@@ -100,7 +102,7 @@ class PoroelasticProblem(object):
             FS_M = FunctionSpace(self.mesh, M)
         FS_F = FunctionSpace(self.mesh, P2)
         FS_V = FunctionSpace(self.mesh, V1)
-        return FS_S, FS_M, FS_F, FS_V
+        return FS_CL, FS_S, FS_M, FS_F, FS_V
 
 
     def add_solid_dirichlet_condition(self, condition, *args, **kwargs):
@@ -109,10 +111,10 @@ class PoroelasticProblem(object):
             dkwargs = {}
             if 'method' in kwargs.keys():
                 dkwargs['method'] = kwargs['method']
-            self.sbcs.append(DirichletBC(self.FS_S.sub(0).sub(n), condition,
+            self.sbcs.append(DirichletBC(self.FS_CL.sub(0), condition,
                                 *args, **dkwargs))
         else:
-            self.sbcs.append(DirichletBC(self.FS_S.sub(0), condition,
+            self.sbcs.append(DirichletBC(self.FS_CL, condition,
                                 *args, **kwargs))
         if 'time' in kwargs.keys() and kwargs['time']:
             self.tconditions.append(condition)
@@ -157,9 +159,11 @@ class PoroelasticProblem(object):
     def set_solid_variational_form(self, neumann_bcs):
 
         U = self.Us
-        dU, L = split(U)
-        V = TestFunction(self.FS_S)
-        v, w = split(V)
+        #dU, L = split(U)
+        dU = U
+        V = TestFunction(self.FS_CL)
+        #v, w = split(V)
+        v = V
 
         # parameters
         rho = self.rho()
@@ -178,14 +182,14 @@ class PoroelasticProblem(object):
 
         self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
                                                 M=m, rho=rho, phi=phi0)
-        L = interpolate(Constant(0), self.FS_S.sub(1).collapse())
-        Psic = self.Psi*dx + L*(self.J-Constant(1)-m/rho)*dx
+        #L = interpolate(Constant(0), self.FS_S.sub(1).collapse())
+        Psic = self.Psi*dx #+ L*(self.J-Constant(1)-m/rho)*dx
 
         for condition, boundary in neumann_bcs:
             Psic += dot(condition*n, dU)*self.ds(boundary)
 
         Form = derivative(Psic, U, V)
-        dF = derivative(Form, U, TrialFunction(self.FS_S))
+        dF = derivative(Form, U, TrialFunction(self.FS_CL))
 
         return Form, dF
 
@@ -194,8 +198,10 @@ class PoroelasticProblem(object):
 
         m = self.mf
         m_n = self.mf_n
-        dU, L = self.Us.split(True)
-        dU_n, L_n = self.Us_n.split(True)
+        #dU, L = self.Us.split(True)
+        #dU_n, L_n = self.Us_n.split(True)
+        dU = self.Us
+        dU_n = self.Us_n
 
         # Parameters
         self.qi = self.q_in()
@@ -257,7 +263,8 @@ class PoroelasticProblem(object):
 
     def fluid_solid_coupling(self):
         TOL = self.TOL()
-        dU, L = self.Us.split(True)
+        #dU, L = self.Us.split(True)
+        dU = self.Us
         if self.N == 1:
             FS = self.FS_M
         else:
@@ -266,6 +273,8 @@ class PoroelasticProblem(object):
             p = TrialFunction(self.FS_F)
             q = TestFunction(self.FS_F)
             a = p*q*dx
+            #L = interpolate(Constant(0), self.FS_S.sub(1).collapse())
+            L = Constant(1e-10)
             Ll = (tr(diff(self.Psi, self.F) * self.F.T))/self.phif[i]*q*dx - L*q*dx
             A = assemble(a)
             b = assemble(Ll)
@@ -282,7 +291,8 @@ class PoroelasticProblem(object):
 
     def calculate_flow_vector(self):
         FS = VectorFunctionSpace(self.mesh, 'P', 1)
-        dU, L = self.Us.split(True)
+        #dU, L = self.Us.split(True)
+        dU = self.Us
         m = TrialFunction(self.FS_V)
         mv = TestFunction(self.FS_V)
 
@@ -297,7 +307,8 @@ class PoroelasticProblem(object):
                                                     "preconditioner": "hypre_amg"})
 
     def move_mesh(self):
-        dU, L = self.Us.split(True)
+        #dU, L = self.Us.split(True)
+        dU= self.Us
         ALE.move(self.mesh, project(dU, VectorFunctionSpace(self.mesh, 'P', 1)))
 
 
