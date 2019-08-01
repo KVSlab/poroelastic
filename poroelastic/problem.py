@@ -446,11 +446,11 @@ class PoroelasticProblem(object):
         d = self.mf.geometric_dimension()
         I = Identity(d)
         K = Constant(self.params['Parameter']['K'])
-        # if self.fibers:
-        #     return K*I
-        # else:
-        #     return K*I
-        return K*I
+        if self.fibers:
+            return K*I
+        else:
+            return K*I
+        #return K*I
         # else:
         #     d = self.u[0].geometric_dimension()
         #     I = Identity(d)
