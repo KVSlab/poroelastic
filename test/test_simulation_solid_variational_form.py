@@ -1,7 +1,14 @@
+__author__ = "Alexandra Diem, Lisa Pankewitz"
+__copyright__ = "Copyright 2019, Alexandra Diem"
+__license__ = "BSD-3"
+__maintainer__ = "Alexandra Diem"
+__email__ = "alexandra@simula.no"
+
+
+# import function based on the demo_hyperelasticity from fenics to evaluate the
+# deformation of the solid
 from Hyperelasticity_Cube import Hyperelastic_Cube
-
-
-""" Set up for simulation using the poroelastic package. """
+# import packages needed
 import uuid
 import sys
 from ufl import grad as ufl_grad
@@ -21,9 +28,10 @@ comm = df.mpi_comm_world()
 #
 mesh = df.UnitCubeMesh(16,12,12)
 #
-#
+# Initiate the ParamParser function to read in the parameters given.
 params = poro.ParamParser()
 #
+# Creating a unique name identifying the directiory created, which stores the data.
 #
 data_dir = str(uuid.uuid4())
 #
@@ -35,9 +43,19 @@ params.add_data("Simulation", "dir", data_dir)
 #
 print("Simulation ID {}".format(data_dir))
 #
+# Next, we initialise the 'PoroelasticProblem' with the Mesh object and ParamParser
+# dictionary.
 #
 pprob = poro.PoroelasticProblem(mesh, params.p)
 #
+# Next we divide our left ventricle into 4 main subdomains, having their
+# individually set boundary conditions.
+# For that to work, we create classes for defining parts of the boundaries and
+# the interior of the domains.
+# We consider Dirichlet boundary conditions. These can be implied by creating a
+# simple function returning a boolean. The idea is to return 'True' for points
+# inside the subdomain and 'False' for those oustide.
+# In our case this means for 'Left' we set the boundaries to x=0.0 .
 #
 class Left(df.SubDomain):
     def inside(self, x, on_boundary):
@@ -74,9 +92,9 @@ right.mark(boundaries, 2)
 top.mark(boundaries, 3)
 bottom.mark(boundaries, 4)
 #
-# Define Dirichlet boundary (x = 0 or x = 1)
 # The Dirichlet boundary values are defined using compiled expressions::
-#
+# The left boundary acts as a clamp on the cubs, whereas the right boundary condition
+# allows to twist the cube.
 zero = df.Constant((0,0,0))
 r = df.Expression(("scale*0.0",
                 "scale*(y0 + (x[1] - y0)*cos(theta) - (x[2] - z0)*sin(theta) - x[1])",
@@ -100,10 +118,6 @@ def set_xdmf_parameters(f):
 #
 N = int(params.p['Parameter']['N'])
 #
-# f1 - list divergence stress
-# f2 - mass fluid
-# f3 - pressure
- # f4 - list scalar of divergence change of deformation solid
  # --------------------------------------------------------------------------------------
  # Important note: To actually find the output data in the 'data directory' you need
  # to run the script in the directory a hierarchy up the data directory, so that the data
@@ -150,189 +164,52 @@ qi = params.p['Parameter']["qi"]
 dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
 #
-# The average error which will be calculated is stored in the list 'avg_error'.
-#avg_error = []
-#
-# To solve the variational problem the class 'PoroelasticProblem' defined in the
-# the module 'problem' in the package 'Poroelastic' provides the function 'solve()'.
-# The function allows for parallel computing and will return process rank of the
-# computed processes for the communicator or the local machine.
-# Furthermore, the function initializes the tolerance function TOL() from the
-# class 'PoroelasticProblem' and sets it to the value found for the keys 'TOL'
-# in the dictionary created when reading in the configuration file.
-# The maximum number of iterations is set to 100.
-# The current time is set to t = 0.0.
-# dt is initialized as a constant of the function 'set_fluid_variational_form'
-# of the class 'Poroelastic'.
-# The solve() function initiates solving of the fluid mass (Mf), fluid divergence (Uf),
-# the pressure (p), the solid divergence (Us) and the time (t).
-# In the solve() function the NonlinearVariationalProblem for the solid as well as
-# the fluid phase will be executed.  For that, as described above, the
-# variational problems are expressed in there variational form stored in
-# the 'set_fluid_variational_form' and the 'set_solid_variational_form' function
-# provided by the module 'problem' in the 'Poroelastic' package.
-# The variational forms are in the 'solve' functions passed as parameter of the
-# dolfin class 'NonlinearVariationalProblem', a class representing a nonlinear
-# variational problem.
-# Besides the variational form, the unknown function has to be passed as parameter,
-# which in our example is represented by mf (fluid mass) or Us (extended constitutive law).
-# The other parameters passed to specify boundary conditions and the Jacobiany
-# and the Jacobian are optional.
-# After setting the parameters of the 'NonlinearVariationalProblem' the 'choose_solver'
-# function is initated out of the 'solve' function.
-#
-# The 'choose_solver' function of the 'problem' module allows the user to choose
-# between a direct solver and an iterative one. For that the 'choose_solver' functions
-# goes through the params dictionary created when reading in the configuration file,
-# and if there is a key defined for ' Simulation and solver' defining the value as
-# directed the method of solving the NonlinearVariationalProblem will be chosen to
-# be done directly by executing the function 'direct_solver'.
-# if not running a Simulation, the value and method ' direct' can be ommitted
-# and the variational problem can be solved in iterative manner by executing the
-# function 'iterative_solver'.
-#
-# A main difference between the two approaches is the computational expense. while
-# we will use in this demo the iterative approach, which is less computationally
-# expensive, one could also define in the configuration file the use of the direct
-# approach. While the the direct approach allows solving the problem in one major
-# computational step, requiring a lot of RAM, the indirect method approaches the
-# solution gradually by in smaller steps which require less RAM but create the
-# need for iteration over solved steps.
-# The iterative approach has in consequence the advantage of being faster.
-# Nevertheless, the tolerance estimate wil be defined by the  solution from the
-# direct method of the well-defined or well-conditioned problem.
-#
-# A while-loop in the 'solve' function enables ffor running the Simulation
-# for as long as defined in the 'Params' dictionary created when reading the
-# configuration file.
-# The MPI-worker number 1 (rank 0) is then defined to be in charge of printing
-# the time by initiating the function 'print_time'.
-# 'print_time' is a function defined in the 'utils' module of the 'Poroelastic'
-# package.
-# The variables 'iter' (iteration) and 'eps' (error-per-step) are initialized.
-#
-# A second while-loop in the 'solve' function limits the number of maximum_iterations
-# to eps > tol and iter < maxiter. That means, that the iteration over the equations
-# is done as long as the error per step (eps) is above the threshold for the tolerance
-# (tol) and the maximum number of iterations set has not been exceeded.
-#
-# During each iteration the latest calculated pressure function 'p' is assigned to
-# the function 'mf_'. For that, the dolfin function .assign() is used, allowing
-# to assign one function to another.
-# The variational problem for the solid, for the fluid and for the fluid_solid_coupling
-# (defining 'p') are initiated respectively.
-# The error variable 'e' is then calculated by first substratingthe pressure variable
-# 'mf' assigned from the iteration step before from the current 'p[0]' .
-# The error 'eps' is in the next step evaluated by the square of the error "e"
-# following the L2 -norm.
-# If the condition eps > tol and iter < maxiter still apply, the while loop of the
-# 'solve' function is not broken.
-# After breaking out of the itaeration determining while - loop, the current Solution
-# for the functions 'mf' and 'Us' are stored as the previous solutions
-# using the dolfin.assign() function.
-#
-# In the next step, the Lagrangian Darcy flow vector, in short referred to as fluid vector,
-# is calculated by initiating the function 'calculate_flow_vector' of the
-# class 'PoroelasticProblem'. For solving this variational problem, the 'solver_parameters'
-# are set to the iterative solver 'minres' with the precondiitoner 'hypre_amg'
-# the same as set as default in the 'iterative_solver' function.
-# The 'solve' function, or in this case even defined as a python generator by using the
-# 'yield' statement instead of the 'return' statement, yields the objects
-# 'self.mf', 'self.Uf', 'self.p', 'self.Us', 't'.
-# 'yield' allows for the local variables being created to be kept and prevents
-# the function from exiting. This way for the simulation, yield allows us to
-# produce a sequence of values. This facilitates iterating over the sequence of solutions created,
-# but does not require us to store the entire sequence in memory as the 'return'
-# statement would.
-# In the next step the mesh is moved by initiating the 'move_mesh' function.
-# The 'move_mesh' function is defined in the 'Problem' module. It takes advantage
-# of the 'ALE.move' class returning the projection of the components of the function
-# 'dU' onto the VectorFunctionSpace.
-# In the last step the the time print statement is updated by adding dt to the current
-# time.
-# An additional print statement after exiting the while-loop is added to avoid
-# overwriting the time print statements when the next output is printed.
-#
-# Moving back to the 'demo_inflate' , we are using the dolfin provided 'split()'
-# function to extract the subfunctions of 'Us' extracting sub functions.
-#
-# The results will be written to the XDMFFiles created earlier, using the 'write_file'
-# function of the 'utils' module. This function itself will initiate the DOLFIN
-# provided 'set_log_level' function, deciding which messages routed through the
-# logging system will be printed to the console. Calling the function 'set_log_level',
-# we can specify the log level of the messages printed by setting the value for the
-# optional integer argument.
-# In our example it is set to 40, meaning with the default level being 20, only
-# messages higher than or equal to the set log level will be printed.
-# next, the 'write_checkpoint' allows for saving a function to an XDMFFile for
-# checkpointing, taking in the parameters of the function to save, the name (label)
-# of the function used, and the time step.
-# Last, the log level is increased by setting the integer to 30, allowing for
-# for messages to be printed.
-#
-# Next in the for loop, the solutions for the domain_area, the sum of the fluid mass
-# (sum_fluid_mass), the theoretical fluid mass (theor_fluid_mass), the theoretical
-# solution for the fluid mass in the domain (theor_sol), the sum of the dispersion
-# (sum_disp)  and the average error (avg_error) are computed.
-# The use of the dolfin function 'assemble' returns depending on the input,
-# a scalar value, a vector, a matrix or a higher rank tensor (in our case a scalar
-# or a matrix).
-#
-# The 'avg_error' saves the error according errornorm L2 and normalized by the
-# theoretical solution 'theor_sol'. The 'avg_error' values are appended to a list.
-#
-# As long as the for loop continues, the theoretical solution and the currently
-# approximated solution of the sum of the fluid mass are printed to the screen.
-#
-# Upon exiting the for loop, the XDMFFiles created are closed by calling the
-# 'close()' function.
+# Calculating the solution for the Hyperelastic_Cube using the exact same mesh(object)
+# as used in the simulation.
 u = Hyperelastic_Cube(mesh)
 for Mf, Uf, p, Us, t in pprob.solve():
 
-    #dU, L = Us.split(True)
-    dU = Us
+    dU, L = Us.split(True)
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
     poro.write_file(f2, Mf, 'mf', t)
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, dU, 'du', t)
+
+# Commented out below  is the option for creating a ParaView readable file to visualize the difference
+# between the solution of the two approaches over the surface of the cube.
+# The error values over the elememts of the mesh is expected to vary and cause error in the magnitude
+# of up to 3e-3. This observation is due to the difference in the calculation of the solution for the solid.
+# In addition to the constitutive law, the PoroelasticProblem applies the Lagrange multiplier
+# subjecting the constitutive law to the constraint evoked by the influence of the fluid mass divergence,
+# density of the fluid and in sum the difference of the fluid influence in each compartment
+# changing the determinante J.
+# This difference in calculation leads to the error observed.
+
+
     #diff = project(dU-u, dU.function_space())
     #poro.write_file(f4, diff, 'du', t)
 
     domain_area += df.assemble(df.div(dU)*dx)*(1-phi)
     sum_fluid_mass += df.assemble(Mf*dx)
-    #theor_fluid_mass += qi*rho*dt
-    #theor_sol = theor_fluid_mass*domain_area
     sum_disp += df.assemble(dU[0]*ds(4))
-    #avg_error.append(np.sqrt(((df.assemble(Mf*dx)-theor_sol)/theor_sol)**2))
-    #print(theor_sol, df.assemble(Mf*dx))
+
 
 [f1[i].close() for i in range(N)]
 f2.close()
 [f3[i].close() for i in range(N)]
 f4.close()
 #
-# The final error is calculated by normalizing the avg_error by the number of elements
-# in the list of errors.
-#
-#error = sum(avg_error)/len(avg_error)
-#
 # The function 'write_config' inherited by the class 'ParamParser' of the module
 # param_parser is executed on the configuration files to be created.
 #
 params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 #
-# Finally, the result for the expected sum fluid mass, the calculated sum of the
-# fluid mass and the average error over all time steps are ptinted to the screen.
-#
-#print("Expected sum fluid mass: {}".format(theor_fluid_mass))
+# Finally, the result for the expected sum fluid mass, the error between the
+# Hyperelastic_Cube solution and the PoroelasticProblem solution according to
+# the L2 norm are calculated and printed to the screen.
+
 print("Sum fluid mass: {}".format(sum_fluid_mass))
-#print("Average error over all time steps: {}".format(error))
 
-print("I finished")
-#
-
-
-#u = Hyperelastic_Cube(16,12,12)
 error = errornorm(u, dU, 'L2')
 print("The error is: {}".format(error))
