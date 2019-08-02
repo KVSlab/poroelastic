@@ -47,6 +47,10 @@ class FluidelasticProblem(object):
             self.p = [Function(self.FS_M)]
 
         rho = self.rho()
+
+        phi0 = self.phi()
+        if self.N == 1:
+            self.phif = [variable(self.mf/rho + phi0)]
         self.fbcs = []
         self.pbcs = []
 
@@ -138,6 +142,32 @@ class FluidelasticProblem(object):
         dF = derivative(Form, m, TrialFunction(self.FS_M))
 
         return Form, dF
+
+    def fluid_solid_coupling(self):
+        TOL = self.TOL()
+        if self.N == 1:
+            FS = self.FS_M
+        else:
+            FS = self.FS_M.sub(0).collapse()
+        for i in range(self.N):
+            p = TrialFunction(self.FS_F)
+            q = TestFunction(self.FS_F)
+            a = p*q*dx
+            L = Constant(0.0)
+            Ll = (tr(diff(self.Psi, self.F) * self.F.T))/self.phif[i]*q*dx - L*q*dx
+            # Ll = (tr(diff(self.Psi, self.F)))*q*dx
+            A = assemble(a)
+            b = assemble(Ll)
+            [bc.apply(A, b) for bc in self.pbcs]
+            solver = KrylovSolver('minres', 'hypre_amg')
+            prm = solver.parameters
+            prm.absolute_tolerance = TOL
+            prm.relative_tolerance = TOL*1e3
+            prm.maximum_iterations = 1000
+            p = Function(self.FS_F)
+            solver.solve(A, p.vector(), b)
+            self.p[i].assign(project(p, FS))
+
     def Constitutive_Law(self):
 
         rho = self.rho()
@@ -148,7 +178,7 @@ class FluidelasticProblem(object):
         #Return the dimension of the space this cell is embedded in
         d = self.mf.geometric_dimension()
         self.I = Identity(d)
-        self.F = self.I
+        self.F = variable(self.I)
         #self.F = variable(self.I + ufl_grad())
         #self.J = variable(det(self.F))
         one = Constant(1)
@@ -190,6 +220,8 @@ class FluidelasticProblem(object):
             mf_ = Function(self.FS_F)
             while eps > tol and iter < maxiter:
                 mf_.assign(self.p[0])
+                self.Constitutive_Law()
+                self.fluid_solid_coupling()
                 msol.solve()
                 e = self.p[0] - mf_
                 eps = np.sqrt(assemble(e**2*dx))
@@ -201,7 +233,7 @@ class FluidelasticProblem(object):
             m = self.sum_fluid_mass()
 
             # Kinematics
-            self.Constitutive_Law()
+            #self.Constitutive_Law()
 
 
 
@@ -262,6 +294,8 @@ class FluidelasticProblem(object):
     def TOL(self):
         return self.params['Parameter']['TOL']
 
+    def phi(self):
+        return Constant(self.params['Parameter']['phi'])
 
 comm = df.mpi_comm_world()
 #
