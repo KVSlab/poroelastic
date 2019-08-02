@@ -138,6 +138,27 @@ class FluidelasticProblem(object):
         dF = derivative(Form, m, TrialFunction(self.FS_M))
 
         return Form, dF
+    def Constitutive_Law(self):
+
+        rho = self.rho()
+        phi0 = Constant(self.params['Parameter']['phi'])
+        m = self.sum_fluid_mass()
+        # Kinematics
+        n = FacetNormal(self.mesh)
+        #Return the dimension of the space this cell is embedded in
+        d = self.mf.geometric_dimension()
+        self.I = Identity(d)
+        self.F = self.I
+        #self.F = variable(self.I + ufl_grad())
+        #self.J = variable(det(self.F))
+        one = Constant(1)
+        self.J = interpolate(one, self.FS_M)
+        self.C = variable(self.F.T*self.F)
+
+        self.Psi = self.material.constitutive_law(J=self.J, C=self.C,
+                                                M=m, rho=rho, phi=phi0)
+        self.f = project(self.Psi, self.FS_M)
+        return self.f
 
 
     def choose_solver(self, prob):
@@ -177,14 +198,17 @@ class FluidelasticProblem(object):
             # Store current solution as previous
             self.mf_n.assign(self.mf)
 
-            # transform mf into list
-            if self.N > 1:
-                mf_list = [self.mf.sub(i) for i in range(self.N)]
+            m = self.sum_fluid_mass()
+
+            # Kinematics
+            self.Constitutive_Law()
+
+
+
 
             if self.N ==1:
-                yield self.mf, self.Uf, self.p, t
-            else:
-                yield mf_list, self.Uf, self.p, t
+                yield self.mf, self.Uf, self.p, self.f, t
+
 
             t += dt
 
@@ -350,12 +374,13 @@ N = int(params.p['Parameter']['N'])
 f1 = [df.XDMFFile(comm, '../data/{}/uf{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f2 = df.XDMFFile(comm, '../data/{}/mf.xdmf'.format(data_dir))
 f3 = [df.XDMFFile(comm, '../data/{}/p{}.xdmf'.format(data_dir, i)) for i in range(N)]
-#
+f4 = df.XDMFFile(comm, '../data/{}/psi.xdmf'.format(data_dir))
 # Initialize 'set_xdmf_parameters' for XDMFFiles to be created
 #
 [set_xdmf_parameters(f1[i]) for i in range(N)]
 set_xdmf_parameters(f2)
 [set_xdmf_parameters(f3[i]) for i in range(N)]
+set_xdmf_parameters(f4)
 
 #
 #
@@ -380,12 +405,15 @@ tf = params.p['Parameter']["tf"]
 #avg_error = []
 #
 #
-for Mf, Uf, p, t in fprob.solve():
+for Mf, Uf, p, f, t in fprob.solve():
 
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
     poro.write_file(f2, Mf, 'mf', t)
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
+    poro.write_file(f4, f, 'Psi', t)
+    #psi = project(psi, FS_M)
+    #File("psi.pvd") << psi
 
     sum_fluid_mass += df.assemble(Mf*dx)
     # No calculation of theor fluid with qi since qi=0 since only using source term
@@ -395,6 +423,7 @@ for Mf, Uf, p, t in fprob.solve():
 [f1[i].close() for i in range(N)]
 f2.close()
 [f3[i].close() for i in range(N)]
+f4.close()
 
 #
 #error = sum(avg_error)/len(avg_error)
