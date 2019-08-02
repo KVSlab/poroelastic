@@ -412,6 +412,7 @@ for Mf, Uf, p, f, t in fprob.solve():
     poro.write_file(f2, Mf, 'mf', t)
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, f, 'Psi', t)
+    #[poro.write_file(f4[i], f[i], 'f{}'.format(i), t) for i in range(N)]
     #psi = project(psi, FS_M)
     #File("psi.pvd") << psi
 
