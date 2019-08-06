@@ -4,7 +4,37 @@ __license__ = "BSD-3"
 __maintainer__ = "Alexandra Diem"
 __email__ = "alexandra@simula.no"
 
+""" This poroelastic simulation implements a twisted unit cube using the
+package 'poroelastic'. It demonstrates in an isolated manner the ability of the
+package to illustrate purely solid related issues and compares this functionality
+to the deformation of a unit cube based on the FEniCS 'demo_hyperelasticity'
+implemented in the function Hyperelastic_Cube(). This simulation functions
+purely as a test validaing the equations of the package describing the solid.
 
+The test simulation is implemented in the main python file
+'Simulation_Test_solid_variational_form.py' importing the module 'Hyperelasticity_Cube'
+and requires the package 'poroelastic'. The module 'poroelastic' implements the
+multicompartment poroelastic equations. 'poroelastic' requires Python 3.x, and is based on
+FEniCS 2017.2.0 (upwards compatibility is suspected, but has not yet been
+tested).
+
+It is recommended to setup FEniCS on Docker. A detailed manual for the
+installation procedure can be found here https://fenicsproject.org/download/.
+
+In short, to create an image that contains all dependencies of 'poroelastic'
+run:
+
+    $docker build --no-cache -t poroelastic:2017.2.0 .
+
+You can then run the docker container using the following command:
+
+    $docker run -ti -p 127.0.0.1:8000:8000 -v $(pwd):/home/fenics/shared -w /home/fenics/shared "poroelastic:2017.2.0"
+
+The tag reflects the FEniCS version used to develop the package.
+
+To view the output Paraview 5.x is required.
+
+"""
 # import function based on the demo_hyperelasticity from fenics to evaluate the
 # deformation of the solid
 from Hyperelasticity_Cube import Hyperelastic_Cube
