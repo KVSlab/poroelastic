@@ -6,6 +6,8 @@ import numpy as np
 import poroelastic as poro
 from poroelastic.material_models import *
 import poroelastic.utils as utils
+from Darcy_Function import Darcy
+import matplotlib.pyplot as plt
 
 # Compiler parameters
 flags = ["-O3", "-ffast-math", "-march=native"]
@@ -438,7 +440,7 @@ tf = params.p['Parameter']["tf"]
 # The average error which will be calculated is stored in the list 'avg_error'.
 #avg_error = []
 #
-#
+p_sol = Darcy(mesh)
 for Mf, Uf, p, f, t in fprob.solve():
 
 
@@ -461,7 +463,7 @@ f2.close()
 f4.close()
 
 #
-#error = sum(avg_error)/len(avg_error)
+
 #
 #
 params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
@@ -469,4 +471,33 @@ params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 # Finally, the result for the expected sum fluid mass, the calculated sum of the
 # fluid mass and the average error over all time steps are ptinted to the screen.
 #
+#error = errornorm(p, p_sol, 'L2')
 print("Sum fluid mass: {}".format(sum_fluid_mass))
+#print(error)
+
+# plot solution
+plt.figure()
+fig = plot(p_sol)
+plt.colorbar(fig)
+plt.savefig("darcy.png")
+#Postprocessing Velocity
+kappa = Constant(1e-7)
+phi = Constant(0.3)
+elem_v = VectorElement("DG", triangle, 0)
+W_v = FunctionSpace(mesh, elem_v)
+grad_p = project(grad(p_sol), W_v)
+vel_f = - kappa * grad_p / phi
+plt.figure()
+fig = plot(vel_f)
+plt.colorbar(fig)
+plt.savefig("vel_f")
+
+
+elem_viz = VectorElement("CG", triangle, 1)
+W_viz = FunctionSpace(mesh, elem_viz)
+v_viz = project(vel_f, W_viz)
+# Save solution to file in VTK format for paraview
+v_file = File('Darcy_vel.pvd')
+p_file = File('Darcy_p.pvd')
+v_file << v_viz
+p_file << p_sol
