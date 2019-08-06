@@ -391,10 +391,10 @@ zero = df.Constant((0,0))
 # allows for pressure gradient
 half = df.Constant(1e-8)
 zero_scalar = df.Constant(0.88)
-# fprob.add_fluid_dirichlet_condition(half, boundaries, 1, time=False)
+fprob.add_fluid_dirichlet_condition(half, boundaries, 1, time=False)
 #need to define right dirichlet boundary condition as string in .cfg file
 # currently set to :  "1e-6*(1-x[0])"
-#fprob.add_fluid_dirichlet_condition(zero_scalar, boundaries, 2, time=False)
+fprob.add_fluid_dirichlet_condition(zero_scalar, boundaries, 2, time=False)
 #
 def set_xdmf_parameters(f):
     f.parameters['flush_output'] = True
