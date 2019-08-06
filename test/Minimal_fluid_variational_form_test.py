@@ -1,3 +1,45 @@
+__author__ = "Alexandra Diem, Lisa Pankewitz"
+__copyright__ = "Copyright 2019, Alexandra Diem"
+__license__ = "BSD-3"
+__maintainer__ = "Alexandra Diem"
+__email__ = "alexandra@simula.no"
+
+""" This poroelastic simulation implements a minimal version of the 'problem'
+module of the package 'poroelastic'. Using a minimal version ' FluidelasticProblem'
+only taking into account the fluid eauations as well as the solid fluid coupling,
+it demonstrates in an isolated manner the ability of the
+package to illustrate purely fluid related issues and compares this functionality
+to the darcy flow in a unit square. The Darcy flow is implemented in the
+function 'Darcy()' in the module 'Darcy_Function'.
+This simulation functions solely as a test validaing the equations of the package
+poroelastic describing the fluid.
+
+The test simulation is implemented in the main python file
+'Minimal_fluid_variational_form.py' importing the module 'Darcy_Function'
+and requires the package 'poroelastic'. The module 'poroelastic' implements the
+multicompartment poroelastic equations. 'poroelastic' requires Python 3.x, and is based on
+FEniCS 2017.2.0 (upwards compatibility is suspected, but has not yet been
+tested).
+
+It is recommended to setup FEniCS on Docker. A detailed manual for the
+installation procedure can be found here https://fenicsproject.org/download/.
+
+In short, to create an image that contains all dependencies of 'poroelastic'
+run:
+
+    $docker build --no-cache -t poroelastic:2017.2.0 .
+
+You can then run the docker container using the following command:
+
+    $docker run -ti -p 127.0.0.1:8000:8000 -v $(pwd):/home/fenics/shared -w /home/fenics/shared "poroelastic:2017.2.0"
+
+The tag reflects the FEniCS version used to develop the package.
+
+To view the output Paraview 5.x is required.
+
+"""
+
+
 import dolfin as df
 import uuid
 from ufl import grad as ufl_grad
@@ -131,7 +173,8 @@ class FluidelasticProblem(object):
         A = self.K()
         if self.N == 1:
             vm = TestFunction(self.FS_M)
-        # dU-dUn --> no change expected so it should vanish
+        # we exclude the erm containing dU-dUn since we are excluding any deformation
+        #which means that this term should vanish,
         #dot(grad(M), k*(dU-dU_n))*vm*dx  should go 0
             Form = k*(m - m_n)*vm*dx + inner(-A*grad(self.p[0]), grad(vm))*dx
 
@@ -386,17 +429,13 @@ bottom.mark(boundaries, 4)
 # Define Dirichlet boundary conditions for solid, allows for focusing on fluid problem comparable to darcy flow
 zero = df.Constant((0,0))
 
-# Dirichlet BC left fluid mass 1e-3, set kwargs time=False, no Source needed since one compartment (N=1)
-# without setting condition , already 0 Neumann conditions
-# allows for pressure gradient
-#half = df.Constant(1e-8)
-#zero_scalar = df.Constant(0.88)
+# Dirichlet BC were set according a simulation without boundary conditions.
+# For time independency of boundary conditions set kwargs time=False
+# no definition of paramtere 'Source' needed since one compartment (N=1)
 zero = df.Constant(0.0)
 start = df.Constant(1.09)
 end = df.Constant(2.46)
 fprob.add_fluid_dirichlet_condition(start, boundaries, 1, time=False)
-#need to define right dirichlet boundary condition as string in .cfg file
-# currently set to :  "1e-6*(1-x[0])"
 fprob.add_fluid_dirichlet_condition(end, boundaries, 2, time=False)
 #
 def set_xdmf_parameters(f):
@@ -440,9 +479,6 @@ qi = params.p['Parameter']["qi"]
 dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
 #
-# The average error which will be calculated is stored in the list 'avg_error'.
-#avg_error = []
-#
 p_sol = Darcy(mesh)
 for Mf, Uf, p, f, t in fprob.solve():
 
@@ -466,9 +502,6 @@ f2.close()
 f4.close()
 
 #
-
-#
-#
 params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 #
 # Finally, the result for the expected sum fluid mass, the calculated sum of the
@@ -478,6 +511,7 @@ params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 print("Sum fluid mass: {}".format(sum_fluid_mass))
 #print(error)
 
+#Postprocessing of Darcy-Flow output for visualization
 # plot solution
 plt.figure()
 fig = plot(p_sol)
