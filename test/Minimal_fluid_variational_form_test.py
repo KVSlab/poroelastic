@@ -272,6 +272,8 @@ class FluidelasticProblem(object):
                 eps = np.sqrt(assemble(e**2*dx))
                 iter += 1
 
+            sig = (self.mf-mf_)/Constant(self.dt())-self.rho()*self.q_in()
+            sig = project(sig, self.FS_M)
             # Store current solution as previous
             self.mf_n.assign(self.mf)
 
@@ -284,7 +286,7 @@ class FluidelasticProblem(object):
 
 
             if self.N ==1:
-                yield self.mf, self.Uf, self.p, self.f, t
+                yield self.mf, self.Uf, self.p, self.f, t, sig
 
 
             t += dt
@@ -453,13 +455,14 @@ f1 = [df.XDMFFile(comm, '../data/{}/uf{}.xdmf'.format(data_dir, i)) for i in ran
 f2 = df.XDMFFile(comm, '../data/{}/mf.xdmf'.format(data_dir))
 f3 = [df.XDMFFile(comm, '../data/{}/p{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f4 = df.XDMFFile(comm, '../data/{}/psi.xdmf'.format(data_dir))
+f5 = df.XDMFFile(comm, '../data/{}/sig.xdmf'.format(data_dir))
 # Initialize 'set_xdmf_parameters' for XDMFFiles to be created
 #
 [set_xdmf_parameters(f1[i]) for i in range(N)]
 set_xdmf_parameters(f2)
 [set_xdmf_parameters(f3[i]) for i in range(N)]
 set_xdmf_parameters(f4)
-
+set_xdmf_parameters(f5)
 #
 #
 # Define new measures associated with exterior boundaries.
@@ -480,17 +483,18 @@ dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
 #
 p_sol = Darcy(mesh)
-for Mf, Uf, p, f, t in fprob.solve():
+for Mf, Uf, p, f, t, sig in fprob.solve():
 
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
     poro.write_file(f2, Mf, 'mf', t)
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, f, 'Psi', t)
-    #[poro.write_file(f4[i], f[i], 'f{}'.format(i), t) for i in range(N)]
+    poro.write_file(f5, sig, 'sig', t)
+
     #psi = project(psi, FS_M)
     #File("psi.pvd") << psi
-
+    print(sig)
     sum_fluid_mass += df.assemble(Mf*dx)
     # No calculation of theor fluid with qi since qi=0 since only using source term
     #theor_fluid_mass += qi*rho*dt
@@ -500,6 +504,8 @@ for Mf, Uf, p, f, t in fprob.solve():
 f2.close()
 [f3[i].close() for i in range(N)]
 f4.close()
+f5.close()
+
 
 #
 params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
