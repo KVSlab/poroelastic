@@ -378,7 +378,6 @@ print("Simulation ID {}".format(data_dir))
 # dictionary.
 #
 fprob = FluidelasticProblem(mesh, params.p)
-#
 # Next we divide our left ventricle into 4 main subdomains, having their
 # individually set boundary conditions.
 # For that to work, we create classes for defining parts of the boundaries and
@@ -435,8 +434,8 @@ zero = df.Constant((0,0))
 # For time independency of boundary conditions set kwargs time=False
 # no definition of paramtere 'Source' needed since one compartment (N=1)
 zero = df.Constant(0.0)
-start = df.Constant(1.09)
-end = df.Constant(2.46)
+start = df.Constant(2.6)
+end = df.Constant(2.6)
 fprob.add_fluid_dirichlet_condition(start, boundaries, 1, time=False)
 fprob.add_fluid_dirichlet_condition(end, boundaries, 2, time=False)
 #
