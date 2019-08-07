@@ -23,14 +23,14 @@ def Darcy(mesh):
     def right(x, on_boundary):
         return on_boundary and near(x[0], 1.0)
 
-    bcl = DirichletBC(P, Constant(1.09), left)
-    bcr = DirichletBC(P, Constant(2.46), right)
+    bcl = DirichletBC(P, Constant(2.6), left)
+    bcr = DirichletBC(P, Constant(2.6), right)
     bcs = [bcl, bcr]
 
     #Define variational problem
 
     p = TrialFunction(P) #representing unknown u
-    q = TestFunction(P) #testfunction - surprise v
+    q = TestFunction(P) #testfunction - surprise vadsasas-=w
     f = Constant(2.0) # or S for source term
     a = kappa*dot(grad(p), grad(q))*dx #lhs - left-hand-side term
     L = f*q*dx #rhs - right-hand-side term
