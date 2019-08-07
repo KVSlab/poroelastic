@@ -31,7 +31,9 @@ def Darcy(mesh):
 
     p = TrialFunction(P) #representing unknown u
     q = TestFunction(P) #testfunction - surprise vadsasas-=w
-    f = Constant(2.0) # or S for source term
+    f = Constant(-3.8e-5) # or S for source term
+    #self.mf, self.Uf, self.p, self.f, t, sig = split(solve())
+    #f = sig
     a = kappa*dot(grad(p), grad(q))*dx #lhs - left-hand-side term
     L = f*q*dx #rhs - right-hand-side term
 
