@@ -294,6 +294,58 @@ class FluidelasticProblem(object):
         # Add a last print so that next output won't overwrite my time print statements
         print()
 
+    def step(self):
+        comm = mpi_comm_world()
+        mpiRank = MPI.rank(comm)
+
+        tol = self.TOL()
+        maxiter = 100
+        t = 0.0
+        dt = self.dt()
+        steps =[]
+
+        mprob = NonlinearVariationalProblem(self.MForm, self.mf, bcs=self.fbcs,
+                                            J=self.dMForm)
+        msol = self.choose_solver(mprob)
+
+        while t < self.params['Parameter']['tf'] and (len(steps) < 1):
+
+            if mpiRank == 0: utils.print_time(t)
+
+            iter = 0
+            eps = 1
+            mf_ = Function(self.FS_F)
+            while eps > tol and iter < maxiter:
+                mf_.assign(self.p[0])
+                self.Constitutive_Law()
+                self.fluid_solid_coupling()
+                msol.solve()
+                e = self.p[0] - mf_
+                eps = np.sqrt(assemble(e**2*dx))
+                iter += 1
+
+            sig = (self.mf-mf_)/Constant(self.dt())-self.rho()*self.q_in()
+            sig = project(sig, self.FS_M)
+            # Store current solution as previous
+            self.mf_n.assign(self.mf)
+
+            m = self.sum_fluid_mass()
+
+            # Kinematics
+            #self.Constitutive_Law()
+
+
+
+
+            if self.N ==1:
+                yield self.mf, self.Uf, self.p, self.f, t, sig
+
+            steps.append(t)
+            t += dt
+
+        # Add a last print so that next output won't overwrite my time print statements
+        print()
+
 
     def direct_solver(self, prob):
         sol = NonlinearVariationalSolver(prob)
@@ -481,8 +533,8 @@ qi = params.p['Parameter']["qi"]
 dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
 #
-p_sol = Darcy(mesh)
-for Mf, Uf, p, f, t, sig in fprob.solve():
+#p_sol = Darcy(mesh)
+for Mf, Uf, p, f, t, sig in fprob.step():
 
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
@@ -493,11 +545,11 @@ for Mf, Uf, p, f, t, sig in fprob.solve():
 
     #psi = project(psi, FS_M)
     #File("psi.pvd") << psi
-    print(sig)
     sum_fluid_mass += df.assemble(Mf*dx)
     # No calculation of theor fluid with qi since qi=0 since only using source term
     #theor_fluid_mass += qi*rho*dt
 
+p_sol = Darcy(mesh)
 
 [f1[i].close() for i in range(N)]
 f2.close()
