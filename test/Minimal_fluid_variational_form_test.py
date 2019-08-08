@@ -569,7 +569,7 @@ params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 # Finally, the result for the expected sum fluid mass, the calculated sum of the
 # fluid mass and the average error over all time steps are ptinted to the screen.
 #
-#error = errornorm(p, p_sol, 'L2')
+error = errornorm(p, p_sol, 'L2')
 print("Sum fluid mass: {}".format(sum_fluid_mass))
 #print(error)
 #Postprocessing of Darcy-Flow output for visualization
