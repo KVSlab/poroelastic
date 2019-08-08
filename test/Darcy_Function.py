@@ -3,12 +3,13 @@ from fenics import *
 from dolfin import *
 import matplotlib.pyplot as plt
 
+
 #calculate exact solution
 p_e = Expression("1 - x[0]*x[0]", degree = 2)
 
 
 
-def Darcy(mesh):
+def Darcy(mesh,sig):
 
     # Create mesh values to iterate over and define function space
     P = FunctionSpace(mesh, 'P', 1) # Pressure so take P
@@ -31,11 +32,11 @@ def Darcy(mesh):
 
     p = TrialFunction(P) #representing unknown u
     q = TestFunction(P) #testfunction - surprise vadsasas-=w
-    f = Constant(-3.8e-5) # or S for source term
-    #self.mf, self.Uf, self.p, self.f, t, sig = split(solve())
+    #f = Constant(-3.8e-5) # or S for source term
+    #self.mf, self.Uf, self.p, self.f, t, sig = FluidelasticProblem.step()
     #f = sig
     a = kappa*dot(grad(p), grad(q))*dx #lhs - left-hand-side term
-    L = f*q*dx #rhs - right-hand-side term
+    L = sig*q*dx #rhs - right-hand-side term
 
     # Compute solution
     p_sol = Function(P)
