@@ -340,6 +340,7 @@ class FluidelasticProblem(object):
             if self.N ==1:
                 yield self.mf, self.Uf, self.p, self.f, t, sig
 
+
             steps.append(t)
             t += dt
 
@@ -542,14 +543,18 @@ for Mf, Uf, p, f, t, sig in fprob.step():
     [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, f, 'Psi', t)
     poro.write_file(f5, sig, 'sig', t)
+    #sig = project(sig,FS)
+    #return sig
 
     #psi = project(psi, FS_M)
     #File("psi.pvd") << psi
     sum_fluid_mass += df.assemble(Mf*dx)
     # No calculation of theor fluid with qi since qi=0 since only using source term
     #theor_fluid_mass += qi*rho*dt
+    #sig = project(sig, FS_M)
+    #return sig
 
-p_sol = Darcy(mesh)
+
 
 [f1[i].close() for i in range(N)]
 f2.close()
@@ -557,7 +562,7 @@ f2.close()
 f4.close()
 f5.close()
 
-
+p_sol = Darcy(mesh,sig)
 #
 params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 #
@@ -567,7 +572,6 @@ params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 #error = errornorm(p, p_sol, 'L2')
 print("Sum fluid mass: {}".format(sum_fluid_mass))
 #print(error)
-
 #Postprocessing of Darcy-Flow output for visualization
 # plot solution
 plt.figure()
