@@ -211,7 +211,8 @@ class FluidelasticProblem(object):
             prm.maximum_iterations = 1000
             p = Function(self.FS_F)
             solver.solve(A, p.vector(), b)
-            self.p[i].assign(project(p, FS))
+            #self.p.assign(project(p, FS))
+            return self.p
 
     def Constitutive_Law(self):
 
@@ -316,11 +317,11 @@ class FluidelasticProblem(object):
             eps = 1
             mf_ = Function(self.FS_F)
             while eps > tol and iter < maxiter:
-                mf_.assign(self.p[0])
+                mf_.assign(self.p)
                 self.Constitutive_Law()
                 self.fluid_solid_coupling()
                 msol.solve()
-                e = self.p[0] - mf_
+                e = self.p - mf_
                 eps = np.sqrt(assemble(e**2*dx))
                 iter += 1
 
@@ -505,14 +506,14 @@ N = int(params.p['Parameter']['N'])
 #
 f1 = [df.XDMFFile(comm, '../data/{}/uf{}.xdmf'.format(data_dir, i)) for i in range(N)]
 f2 = df.XDMFFile(comm, '../data/{}/mf.xdmf'.format(data_dir))
-f3 = [df.XDMFFile(comm, '../data/{}/p{}.xdmf'.format(data_dir, i)) for i in range(N)]
+f3 = df.XDMFFile(comm, '../data/{}/p.xdmf'.format(data_dir))
 f4 = df.XDMFFile(comm, '../data/{}/psi.xdmf'.format(data_dir))
 f5 = df.XDMFFile(comm, '../data/{}/sig.xdmf'.format(data_dir))
 # Initialize 'set_xdmf_parameters' for XDMFFiles to be created
 #
 [set_xdmf_parameters(f1[i]) for i in range(N)]
 set_xdmf_parameters(f2)
-[set_xdmf_parameters(f3[i]) for i in range(N)]
+set_xdmf_parameters(f3)
 set_xdmf_parameters(f4)
 set_xdmf_parameters(f5)
 #
@@ -540,7 +541,8 @@ for Mf, Uf, p, f, t, sig in fprob.step():
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
     poro.write_file(f2, Mf, 'mf', t)
-    [poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
+    poro.write_file(f3, p, 'p', t)
+    #[poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, f, 'Psi', t)
     poro.write_file(f5, sig, 'sig', t)
     #sig = project(sig,FS)
@@ -558,7 +560,8 @@ for Mf, Uf, p, f, t, sig in fprob.step():
 
 [f1[i].close() for i in range(N)]
 f2.close()
-[f3[i].close() for i in range(N)]
+f3.close()
+#[f3[i].close() for i in range(N)]
 f4.close()
 f5.close()
 
