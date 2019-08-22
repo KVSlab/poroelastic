@@ -541,7 +541,7 @@ for Mf, Uf, p, f, t, sig in fprob.step():
 
     [poro.write_file(f1[i], Uf[i], 'uf{}'.format(i), t) for i in range(N)]
     poro.write_file(f2, Mf, 'mf', t)
-    poro.write_file(f3, p, 'p', t)
+    poro.write_file(f3, p[0], 'p', t)
     #[poro.write_file(f3[i], p[i], 'p{}'.format(i), t) for i in range(N)]
     poro.write_file(f4, f, 'Psi', t)
     poro.write_file(f5, sig, 'sig', t)
