@@ -317,11 +317,11 @@ class FluidelasticProblem(object):
             eps = 1
             mf_ = Function(self.FS_F)
             while eps > tol and iter < maxiter:
-                mf_.assign(self.p)
+                mf_.assign(self.p[0])
                 self.Constitutive_Law()
                 self.fluid_solid_coupling()
                 msol.solve()
-                e = self.p - mf_
+                e = self.p[0] - mf_
                 eps = np.sqrt(assemble(e**2*dx))
                 iter += 1
 
@@ -572,7 +572,7 @@ params.write_config('../data/{}/{}.cfg'.format(data_dir, data_dir))
 # Finally, the result for the expected sum fluid mass, the calculated sum of the
 # fluid mass and the average error over all time steps are ptinted to the screen.
 #
-error = errornorm(p, p_sol, 'L2')
+#error = errornorm(p, p_sol, 'L2')
 print("Sum fluid mass: {}".format(sum_fluid_mass))
 #print(error)
 #Postprocessing of Darcy-Flow output for visualization
