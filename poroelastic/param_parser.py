@@ -7,10 +7,11 @@ import argparse
 class ParamParser(object):
 
     def __init__(self, cfgfile=None):
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--cfg")
-        args = parser.parse_args()
+
         if cfgfile is None:
+            parser = argparse.ArgumentParser()
+            parser.add_argument("--cfg")
+            args = parser.parse_args()
             cfgfile = args.cfg
 
         try:
