@@ -618,3 +618,6 @@ print("I finished the HyperElasticProblem Part!")
 u = Hyperelastic_Cube(df.UnitCubeMesh(16,12,12))
 error = errornorm(u, dU, 'L2')
 print("The error is: {}".format(error))
+
+def test_error(error):
+    assert error < 0.1
