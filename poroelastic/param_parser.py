@@ -6,11 +6,12 @@ import argparse
 
 class ParamParser(object):
 
-    def __init__(self):
+    def __init__(self, cfgfile=None):
         parser = argparse.ArgumentParser()
         parser.add_argument("--cfg")
         args = parser.parse_args()
-        cfgfile = args.cfg
+        if cfgfile is None:
+            cfgfile = args.cfg
 
         try:
             f = open(cfgfile, 'r')
