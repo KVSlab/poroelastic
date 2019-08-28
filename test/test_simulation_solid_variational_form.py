@@ -159,7 +159,6 @@ domain_area = 1.0
 # In this instance the key 'parameter' is looked up.
 #
 phi = params.p['Parameter']["phi"]
-rho = params.p['Parameter']["rho"]
 qi = params.p['Parameter']["qi"]
 dt = params.p['Parameter']["dt"]
 tf = params.p['Parameter']["tf"]
