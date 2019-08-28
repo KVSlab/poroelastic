@@ -29,7 +29,7 @@ comm = df.mpi_comm_world()
 mesh = df.UnitCubeMesh(16,12,12)
 #
 # Initiate the ParamParser function to read in the parameters given.
-params = poro.ParamParser()
+params = poro.ParamParser(cfgfile='test_simulation_solid_variational_form.cfg')
 #
 # Creating a unique name identifying the directiory created, which stores the data.
 #

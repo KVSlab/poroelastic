@@ -371,7 +371,7 @@ class HyperElasticProblem(object):
                 Flow vector can only be calculated if qi,qo!=0 ! \n\
                 Simulation will continue without calculating the flow vector.\
                 \n **************************************** )")
-        
+
             else:
                 self.calculate_flow_vector()
 
@@ -464,7 +464,7 @@ comm = df.mpi_comm_world()
 mesh = df.UnitCubeMesh(16,12,12)
 #
 #
-params = poro.ParamParser()
+params = poro.ParamParser(cfgfile='test_solid_hyperelasticity_simulation.cfg')
 #
 #
 data_dir = str(uuid.uuid4())

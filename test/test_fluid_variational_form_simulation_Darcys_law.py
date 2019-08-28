@@ -24,7 +24,7 @@ mesh = df.UnitSquareMesh(nx, nx)
 # Parameters are loaded using the class 'ParamParser' that reads and processes
 # the provided cfg file.
 #
-params = poro.ParamParser()
+params = poro.ParamParser(cfgfile='test_fluid_variational_form_Darcy_law.cfg')
 #
 # Next, we generate a unique directory for data storage.
 #
