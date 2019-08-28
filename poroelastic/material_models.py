@@ -98,6 +98,7 @@ class NeoHookeanMaterial(object):
 
 
     def constitutive_law(self, **kwargs):
+        J = kwargs["J"]
         C = kwargs["C"]
         Ic = tr(C)
 
